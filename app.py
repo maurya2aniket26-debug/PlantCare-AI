@@ -1,6 +1,16 @@
+```python
 import os
+
+# =========================================================
+# IMPORTANT: CPU ONLY FOR RENDER
+# =========================================================
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
 import base64
 import uuid
+import gc
 
 import numpy as np
 import tensorflow as tf
@@ -10,21 +20,30 @@ from werkzeug.utils import secure_filename
 
 
 # =========================================================
-# 1. FLASK APP
+# 1. LIMIT TENSORFLOW CPU THREADS
+# =========================================================
+
+try:
+    tf.config.threading.set_intra_op_parallelism_threads(1)
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+except Exception:
+    pass
+
+
+# =========================================================
+# 2. FLASK APP
 # =========================================================
 
 app = Flask(__name__)
 
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
+
 
 # =========================================================
-# 2. PROJECT PATHS
+# 3. PROJECT PATHS
 # =========================================================
-
-# Automatically find the folder where app.py is located.
-# This works on both your computer and Render.
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
 
 MODEL_PATH = os.path.join(
     BASE_DIR,
@@ -32,36 +51,18 @@ MODEL_PATH = os.path.join(
     "plant_disease_mobilenet_finetuned.keras"
 )
 
-
 UPLOAD_FOLDER = os.path.join(
     BASE_DIR,
     "static",
     "uploads"
 )
 
-
 os.makedirs(
     UPLOAD_FOLDER,
     exist_ok=True
 )
 
-
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-
-
-# =========================================================
-# 3. LOAD MODEL
-# =========================================================
-
-print("Loading fine-tuned MobileNetV2 model...")
-
-model = tf.keras.models.load_model(
-    MODEL_PATH
-)
-
-print(
-    "Fine-tuned MobileNetV2 model loaded successfully!"
-)
 
 
 # =========================================================
@@ -360,7 +361,31 @@ disease_info = {
 
 
 # =========================================================
-# 6. IMAGE PREPARATION
+# 6. LOAD MODEL
+# =========================================================
+
+print("Loading fine-tuned MobileNetV2 model...")
+
+try:
+
+    model = tf.keras.models.load_model(
+        MODEL_PATH,
+        compile=False
+    )
+
+    print(
+        "Fine-tuned MobileNetV2 model loaded successfully!"
+    )
+
+except Exception as e:
+
+    print("MODEL LOAD ERROR:", e)
+
+    model = None
+
+
+# =========================================================
+# 7. IMAGE PREPARATION
 # =========================================================
 
 def prepare_image(image_path):
@@ -383,7 +408,7 @@ def prepare_image(image_path):
 
 
 # =========================================================
-# 7. HOME PAGE
+# 8. HOME
 # =========================================================
 
 @app.route("/")
@@ -395,7 +420,7 @@ def home():
 
 
 # =========================================================
-# 8. PREDICTION
+# 9. PREDICT
 # =========================================================
 
 @app.route(
@@ -407,10 +432,9 @@ def predict():
     image_path = None
     filename = None
 
-
-    # =====================================================
-    # OPTION 1 — IMAGE UPLOAD
-    # =====================================================
+    # -----------------------------------------------------
+    # UPLOAD IMAGE
+    # -----------------------------------------------------
 
     if (
         "image" in request.files
@@ -434,7 +458,10 @@ def predict():
             ".webp"
         ]:
 
-            extension = ".jpg"
+            return render_template(
+                "index.html",
+                error="Please upload JPG, JPEG, PNG or WEBP image."
+            )
 
         filename = (
             "uploaded_"
@@ -452,9 +479,9 @@ def predict():
         )
 
 
-    # =====================================================
-    # OPTION 2 — CAMERA IMAGE
-    # =====================================================
+    # -----------------------------------------------------
+    # CAMERA IMAGE
+    # -----------------------------------------------------
 
     elif request.form.get(
         "camera_image_data"
@@ -509,11 +536,6 @@ def predict():
                 error="Could not process the camera photo."
             )
 
-
-    # =====================================================
-    # NO IMAGE
-    # =====================================================
-
     else:
 
         return render_template(
@@ -522,25 +544,48 @@ def predict():
         )
 
 
-    # =====================================================
+    # -----------------------------------------------------
+    # MODEL CHECK
+    # -----------------------------------------------------
+
+    if model is None:
+
+        return render_template(
+            "index.html",
+            error="The AI model could not be loaded."
+        )
+
+
+    # -----------------------------------------------------
     # PREDICTION
-    # =====================================================
+    # -----------------------------------------------------
 
     try:
+
+        print("Preparing image...")
 
         img_array = prepare_image(
             image_path
         )
 
-        predictions = model.predict(
-            img_array,
-            verbose=0
+        print("Running AI prediction...")
+
+        # Faster/lighter than model.predict()
+        predictions = model.predict_on_batch(
+            img_array
         )[0]
 
+        predictions = np.asarray(
+            predictions,
+            dtype=np.float32
+        )
 
-        # =================================================
-        # TOP 3 PREDICTIONS
-        # =================================================
+        print("Prediction completed.")
+
+
+        # -------------------------------------------------
+        # TOP 3
+        # -------------------------------------------------
 
         top_indices = np.argsort(
             predictions
@@ -564,11 +609,13 @@ def predict():
             )
 
 
-        # =================================================
+        # -------------------------------------------------
         # BEST PREDICTION
-        # =================================================
+        # -------------------------------------------------
 
-        predicted_index = top_indices[0]
+        predicted_index = int(
+            top_indices[0]
+        )
 
         predicted_class = class_names[
             predicted_index
@@ -579,12 +626,11 @@ def predict():
         )
 
 
-        # =================================================
-        # UNCERTAIN CHECK
-        # =================================================
+        # -------------------------------------------------
+        # UNCERTAIN
+        # -------------------------------------------------
 
         UNCERTAIN_THRESHOLD = 55.0
-
 
         if confidence < UNCERTAIN_THRESHOLD:
 
@@ -609,11 +655,11 @@ def predict():
             prediction_status = "uncertain"
 
 
-        else:
+        # -------------------------------------------------
+        # NORMAL PREDICTION
+        # -------------------------------------------------
 
-            # =============================================
-            # NORMAL PREDICTION
-            # =============================================
+        else:
 
             if predicted_class in disease_info:
 
@@ -657,11 +703,11 @@ def predict():
             prediction_status = "prediction"
 
 
-        # =================================================
-        # SEND RESULT TO WEBSITE
-        # =================================================
+        # -------------------------------------------------
+        # RESULT
+        # -------------------------------------------------
 
-        return render_template(
+        result = render_template(
 
             "index.html",
 
@@ -689,54 +735,47 @@ def predict():
         )
 
 
+        # -------------------------------------------------
+        # CLEAN MEMORY
+        # -------------------------------------------------
+
+        del img_array
+        del predictions
+
+        gc.collect()
+
+        return result
+
+
     except Exception as e:
 
         print(
             "Prediction error:",
-            e
+            repr(e)
         )
 
         return render_template(
             "index.html",
-            error="Unable to analyze this image."
+            error="Unable to analyze this image. Please try again with a clear leaf photo."
         )
 
 
 # =========================================================
-# 9. RUN WEBSITE
+# 10. RUN
 # =========================================================
 
 if __name__ == "__main__":
 
-    print()
-    print("======================================")
-    print("PLANT DISEASE DETECTION WEBSITE")
-    print("======================================")
-    print()
-
-    print(
-        "Open on this laptop:"
+    port = int(
+        os.environ.get(
+            "PORT",
+            5000
+        )
     )
-
-    print(
-        "http://127.0.0.1:5000"
-    )
-
-    print()
-
-    print(
-        "For phone testing, use the public website URL."
-    )
-
-    print()
 
     app.run(
         host="0.0.0.0",
-        port=int(
-            os.environ.get(
-                "PORT",
-                5000
-            )
-        ),
+        port=port,
         debug=False
     )
+```
