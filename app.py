@@ -20,7 +20,11 @@ app = Flask(__name__)
 # 2. PROJECT PATHS
 # =========================================================
 
-BASE_DIR = r"C:\Users\spaan\Desktop\Plant_Disease_Project"
+# Automatically find the folder where app.py is located.
+# This works on both your computer and Render.
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 MODEL_PATH = os.path.join(
     BASE_DIR,
@@ -28,13 +32,19 @@ MODEL_PATH = os.path.join(
     "plant_disease_mobilenet_finetuned.keras"
 )
 
+
 UPLOAD_FOLDER = os.path.join(
     BASE_DIR,
     "static",
     "uploads"
 )
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+os.makedirs(
+    UPLOAD_FOLDER,
+    exist_ok=True
+)
+
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
@@ -45,9 +55,13 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 print("Loading fine-tuned MobileNetV2 model...")
 
-model = tf.keras.models.load_model(MODEL_PATH)
+model = tf.keras.models.load_model(
+    MODEL_PATH
+)
 
-print("Fine-tuned MobileNetV2 model loaded successfully!")
+print(
+    "Fine-tuned MobileNetV2 model loaded successfully!"
+)
 
 
 # =========================================================
@@ -59,30 +73,43 @@ class_names = [
     "Apple___Black_rot",
     "Apple___Cedar_apple_rust",
     "Apple___healthy",
+
     "Blueberry___healthy",
+
     "Cherry_(including_sour)___Powdery_mildew",
     "Cherry_(including_sour)___healthy",
+
     "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot",
     "Corn_(maize)___Common_rust_",
     "Corn_(maize)___Northern_Leaf_Blight",
     "Corn_(maize)___healthy",
+
     "Grape___Black_rot",
     "Grape___Esca_(Black_Measles)",
     "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)",
     "Grape___healthy",
+
     "Orange___Haunglongbing_(Citrus_greening)",
+
     "Peach___Bacterial_spot",
     "Peach___healthy",
+
     "Pepper,_bell___Bacterial_spot",
     "Pepper,_bell___healthy",
+
     "Potato___Early_blight",
     "Potato___Late_blight",
     "Potato___healthy",
+
     "Raspberry___healthy",
+
     "Soybean___healthy",
+
     "Squash___Powdery_mildew",
+
     "Strawberry___Leaf_scorch",
     "Strawberry___healthy",
+
     "Tomato___Bacterial_spot",
     "Tomato___Early_blight",
     "Tomato___Late_blight",
@@ -343,7 +370,9 @@ def prepare_image(image_path):
         target_size=(160, 160)
     )
 
-    img_array = tf.keras.utils.img_to_array(img)
+    img_array = tf.keras.utils.img_to_array(
+        img
+    )
 
     img_array = tf.expand_dims(
         img_array,
@@ -418,7 +447,9 @@ def predict():
             filename
         )
 
-        file.save(image_path)
+        file.save(
+            image_path
+        )
 
 
     # =====================================================
@@ -522,6 +553,7 @@ def predict():
             top_predictions.append(
                 {
                     "class": class_names[index],
+
                     "confidence": round(
                         float(
                             predictions[index] * 100
@@ -555,9 +587,6 @@ def predict():
 
 
         if confidence < UNCERTAIN_THRESHOLD:
-
-            # Keep these empty because the new
-            # HTML design will not display them.
 
             plant = ""
 
@@ -696,13 +725,18 @@ if __name__ == "__main__":
     print()
 
     print(
-        "For phone testing, use the HTTPS ngrok address."
+        "For phone testing, use the public website URL."
     )
 
     print()
 
     app.run(
         host="0.0.0.0",
-        port=5000,
+        port=int(
+            os.environ.get(
+                "PORT",
+                5000
+            )
+        ),
         debug=False
     )
