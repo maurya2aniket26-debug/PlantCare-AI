@@ -1,9 +1,21 @@
 from flask import Flask, render_template, request
+import os
+import json
+
+# ============================================================
+# TENSORFLOW RESOURCE SETTINGS
+# IMPORTANT:
+# These MUST be set BEFORE importing TensorFlow.
+# Do NOT call tf.config.threading.set_* after TensorFlow loads.
+# ============================================================
+
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+
 import tensorflow as tf
 import numpy as np
 from PIL import Image, ImageOps
-import json
-import os
 
 
 # ============================================================
@@ -36,13 +48,9 @@ CLASS_NAMES_PATH = os.path.join(
 # SETTINGS
 # ============================================================
 
-# Minimum AI confidence required
 CONFIDENCE_THRESHOLD = 65.0
-
-# Difference between first and second prediction
 MARGIN_THRESHOLD = 10.0
 
-# MobileNetV2 input size
 IMAGE_SIZE = (224, 224)
 
 
@@ -98,28 +106,33 @@ try:
 
     model_output_classes = model.output_shape[-1]
 
+    print(
+        "Model output classes:",
+        model_output_classes
+    )
+
+    print(
+        "JSON classes:",
+        len(class_names)
+    )
+
     if model_output_classes != len(class_names):
 
         print()
         print("WARNING!")
         print(
-            "Model classes:",
-            model_output_classes
+            "Model classes and JSON classes do not match."
         )
-
         print(
-            "JSON classes:",
-            len(class_names)
+            "Make sure class_names.json belongs to this model."
         )
 
-        print(
-            "Make sure class_names.json belongs "
-            "to this model."
-        )
+except Exception as e:
 
-except Exception:
-
-    pass
+    print(
+        "Could not check model output classes:",
+        e
+    )
 
 
 # ============================================================
@@ -705,10 +718,7 @@ def looks_like_plant_image(image):
     g = arr[:, :, 1]
     b = arr[:, :, 2]
 
-    # --------------------------------------------------------
     # Green pixels
-    # --------------------------------------------------------
-
     green_pixels = (
         (g > r * 1.05) &
         (g > b * 1.03) &
@@ -719,10 +729,7 @@ def looks_like_plant_image(image):
         green_pixels
     )
 
-    # --------------------------------------------------------
     # Brown / dry leaf pixels
-    # --------------------------------------------------------
-
     brown_pixels = (
         (r > g * 1.05) &
         (g > b * 1.10) &
@@ -733,10 +740,6 @@ def looks_like_plant_image(image):
     brown_ratio = np.mean(
         brown_pixels
     )
-
-    # --------------------------------------------------------
-    # Brightness
-    # --------------------------------------------------------
 
     brightness = np.mean(
         (r + g + b) / 3
@@ -758,10 +761,6 @@ def looks_like_plant_image(image):
         "Average brightness:",
         round(float(brightness), 2)
     )
-
-    # --------------------------------------------------------
-    # Plant image acceptance
-    # --------------------------------------------------------
 
     if green_ratio >= 0.06:
         return True
@@ -812,10 +811,6 @@ def predict():
     print("=" * 60)
     print("NEW IMAGE RECEIVED")
     print("=" * 60)
-
-    # --------------------------------------------------------
-    # CHECK FILE
-    # --------------------------------------------------------
 
     if "image" not in request.files:
 
@@ -1064,7 +1059,6 @@ def predict():
             predicted_class
         )
 
-
         if info is None:
 
             plant = get_plant_name(
@@ -1259,12 +1253,7 @@ if __name__ == "__main__":
 
     print("=" * 60)
 
-
-    # IMPORTANT:
-    # use_reloader=False prevents the Flask watchdog
-    # from restarting the application and causing
-    # SystemExit: 1 in Spyder.
-
+    # IMPORTANT FOR SPYDER
     app.run(
         host="0.0.0.0",
         port=5000,
