@@ -1420,7 +1420,9 @@ footer{
 
                 <!--
                 IMPORTANT:
-                capture="environment" is the phone-camera fix.
+                capture is NOT permanently added.
+                JavaScript adds capture="environment"
+                only when Open Phone Camera is clicked.
                 -->
 
                 <form
@@ -1436,7 +1438,6 @@ footer{
                         id="imageInput"
                         name="image"
                         accept="image/jpeg,image/png,image/webp,image/*"
-                        capture="environment"
                         hidden
                     >
 
@@ -2016,6 +2017,8 @@ function openScanner(){
 
 /* =====================================================
    CHOOSE IMAGE
+   UPDATED:
+   Opens normal gallery/file picker.
 ===================================================== */
 
 function chooseImage(){
@@ -2025,6 +2028,12 @@ function chooseImage(){
 
     if(input){
 
+        /*
+         * Remove camera capture so this button
+         * opens the normal gallery/file picker.
+         */
+        input.removeAttribute("capture");
+
         input.click();
 
     }
@@ -2033,7 +2042,8 @@ function chooseImage(){
 
 /* =====================================================
    PHONE CAMERA
-   IMPORTANT FIX
+   UPDATED:
+   Adds capture ONLY when this button is clicked.
 ===================================================== */
 
 function openPhoneCamera(){
@@ -2056,14 +2066,9 @@ function openPhoneCamera(){
     }
 
     /*
-     * capture="environment" tells the mobile browser
-     * to prefer the rear camera.
-     *
-     * This does NOT require getUserMedia().
-     * Therefore it works much better with a Flask
-     * website running on HTTP.
+     * Tell the mobile browser to prefer
+     * the rear/environment camera.
      */
-
     input.setAttribute(
         "capture",
         "environment"
