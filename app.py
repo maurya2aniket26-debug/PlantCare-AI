@@ -1,9 +1,10 @@
 from flask import Flask, render_template, request
 import os
 import json
+import gc
 
 # ============================================================
-# RENDER / TENSORFLOW RESOURCE SETTINGS
+# RENDER / TENSORFLOW MEMORY SETTINGS
 # IMPORTANT:
 # These MUST be set BEFORE importing TensorFlow.
 # ============================================================
@@ -11,13 +12,22 @@ import json
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
 os.environ["TF_NUM_INTEROP_THREADS"] = "1"
-
-# Reduce TensorFlow memory usage
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
 import tensorflow as tf
 import numpy as np
 from PIL import Image, ImageOps
+
+
+# ============================================================
+# TENSORFLOW CPU THREAD LIMIT
+# ============================================================
+
+try:
+    tf.config.threading.set_intra_op_parallelism_threads(1)
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+except Exception:
+    pass
 
 
 # ============================================================
@@ -57,17 +67,6 @@ IMAGE_SIZE = (224, 224)
 
 
 # ============================================================
-# TENSORFLOW MEMORY OPTIMIZATION
-# ============================================================
-
-try:
-    tf.config.threading.set_intra_op_parallelism_threads(1)
-    tf.config.threading.set_inter_op_parallelism_threads(1)
-except Exception:
-    pass
-
-
-# ============================================================
 # LOAD MODEL
 # ============================================================
 
@@ -87,6 +86,9 @@ model = tf.keras.models.load_model(
 
 print("Model loaded successfully.")
 print("Model input shape:", model.input_shape)
+
+# Render memory cleanup after model loading
+gc.collect()
 
 
 # ============================================================
@@ -911,21 +913,19 @@ def predict():
 
         # ====================================================
         # MODEL PREDICTION
+        # Render memory optimization:
+        # Use direct inference instead of model.predict()
         # ====================================================
 
-        predictions = model.predict(
+        predictions = model(
             image_array,
-            verbose=0
+            training=False
         )
 
-        probabilities = predictions[0]
+        probabilities = predictions.numpy()[0]
 
-
-        # Release prediction array after extracting values
-        probabilities = np.asarray(
-            probabilities,
-            dtype=np.float32
-        )
+        # Free temporary TensorFlow prediction object
+        del predictions
 
 
         # ====================================================
@@ -933,6 +933,9 @@ def predict():
         # ====================================================
 
         if len(probabilities) != len(class_names):
+
+            del image_array
+            gc.collect()
 
             print(
                 "ERROR: Model output and class names "
@@ -1045,6 +1048,10 @@ def predict():
 
         if confidence < CONFIDENCE_THRESHOLD:
 
+            del image_array
+            del probabilities
+            gc.collect()
+
             print(
                 "IMAGE REJECTED - LOW CONFIDENCE"
             )
@@ -1060,6 +1067,10 @@ def predict():
         # ====================================================
 
         if margin < MARGIN_THRESHOLD:
+
+            del image_array
+            del probabilities
+            gc.collect()
 
             print(
                 "IMAGE REJECTED - UNCERTAIN PREDICTION"
@@ -1146,6 +1157,18 @@ def predict():
 
 
         # ====================================================
+        # MEMORY CLEANUP
+        # ====================================================
+
+        del image_array
+        del probabilities
+        del top_indices
+        del sorted_probabilities
+
+        gc.collect()
+
+
+        # ====================================================
         # SHOW RESULT
         # ====================================================
 
@@ -1187,6 +1210,8 @@ def predict():
         )
 
         print("=" * 60)
+
+        gc.collect()
 
         return show_error(
             "Unable to analyze this image. "
@@ -1273,10 +1298,7 @@ if __name__ == "__main__":
 
     print("=" * 60)
 
-    # ========================================================
-    # SPYDER / LOCAL
-    # ========================================================
-
+    # IMPORTANT FOR SPYDER
     app.run(
         host="0.0.0.0",
         port=5000,
