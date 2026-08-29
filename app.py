@@ -1,25 +1,33 @@
-from flask import Flask, render_template, request
 import os
-import json
 
 # ============================================================
-# TENSORFLOW RESOURCE SETTINGS
+# IMPORTANT:
+# Set TensorFlow limits BEFORE importing TensorFlow.
+# This helps reduce RAM/CPU usage on Render.
 # ============================================================
 
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
 os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
-import tensorflow as tf
+import json
+import gc
+
+from flask import Flask, render_template, request
 import numpy as np
 from PIL import Image, ImageOps
+import tensorflow as tf
 
 
 # ============================================================
-# FLASK APP
+# FLASK
 # ============================================================
 
 app = Flask(__name__)
+
+# Limit uploaded image size
+app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 
 
 # ============================================================
@@ -47,15 +55,23 @@ CLASS_NAMES_PATH = os.path.join(
 
 IMAGE_SIZE = (224, 224)
 
-# Minimum confidence required
-CONFIDENCE_THRESHOLD = 65.0
-
-# Minimum difference between top 1 and top 2
-MARGIN_THRESHOLD = 10.0
+CONFIDENCE_THRESHOLD = 50.0
+MARGIN_THRESHOLD = 5.0
 
 
 # ============================================================
-# LOAD CLASS NAMES
+# TENSORFLOW CPU SETTINGS
+# ============================================================
+
+try:
+    tf.config.threading.set_intra_op_parallelism_threads(1)
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+except Exception:
+    pass
+
+
+# ============================================================
+# CLASS NAMES
 # ============================================================
 
 print("=" * 60)
@@ -68,10 +84,10 @@ print(BASE_DIR)
 print()
 print("Checking class_names.json...")
 
-if not os.path.exists(CLASS_NAMES_PATH):
+if not os.path.isfile(CLASS_NAMES_PATH):
     raise FileNotFoundError(
-        "class_names.json not found: " +
-        CLASS_NAMES_PATH
+        "class_names.json not found: "
+        + CLASS_NAMES_PATH
     )
 
 with open(
@@ -81,29 +97,42 @@ with open(
 ) as f:
     class_names = json.load(f)
 
+
+if not isinstance(class_names, list):
+    raise ValueError(
+        "class_names.json must contain a list."
+    )
+
+class_names = [
+    str(name).strip()
+    for name in class_names
+]
+
 print(
-    "Class names loaded:",
+    "Classes loaded:",
     len(class_names)
 )
 
 
 # ============================================================
-# LOAD MODEL
+# MODEL
 # ============================================================
 
 print()
-print("=" * 60)
-print("Loading AI model...")
-print("=" * 60)
+print("Checking model...")
 
-if not os.path.exists(MODEL_PATH):
+if not os.path.isfile(MODEL_PATH):
     raise FileNotFoundError(
-        "Model not found: " +
-        MODEL_PATH
+        "Model not found: "
+        + MODEL_PATH
     )
 
 print("Model found:")
 print(MODEL_PATH)
+
+print()
+print("Loading AI model...")
+print("This may take some time on Render...")
 
 model = tf.keras.models.load_model(
     MODEL_PATH,
@@ -127,22 +156,24 @@ print(
 # MODEL / CLASS CHECK
 # ============================================================
 
-try:
+MODEL_CLASS_COUNT = int(
+    model.output_shape[-1]
+)
 
-    model_classes = model.output_shape[-1]
+JSON_CLASS_COUNT = len(class_names)
 
-    if model_classes != len(class_names):
+print()
+print("Model classes:")
+print(MODEL_CLASS_COUNT)
 
-        raise ValueError(
-            "Model output classes and class_names.json "
-            "do not match."
-        )
+print("JSON classes:")
+print(JSON_CLASS_COUNT)
 
-except Exception as e:
-
-    print(
-        "Model/class check error:",
-        str(e)
+if MODEL_CLASS_COUNT != JSON_CLASS_COUNT:
+    raise ValueError(
+        "MODEL / CLASS_NAMES MISMATCH: "
+        f"model={MODEL_CLASS_COUNT}, "
+        f"json={JSON_CLASS_COUNT}"
     )
 
 
@@ -153,11 +184,11 @@ except Exception as e:
 def get_plant_name(class_name):
 
     if "___" in class_name:
-
-        plant_name = class_name.split("___")[0]
-
+        plant_name = class_name.split(
+            "___",
+            1
+        )[0]
     else:
-
         plant_name = class_name
 
     plant_name = plant_name.replace(
@@ -188,11 +219,9 @@ def get_plant_name(class_name):
 # ============================================================
 
 plant_names = sorted(
-    list(
-        set(
-            get_plant_name(name)
-            for name in class_names
-        )
+    set(
+        get_plant_name(name)
+        for name in class_names
     )
 )
 
@@ -200,7 +229,6 @@ print()
 print("Plants supported by model:")
 
 for plant in plant_names:
-
     print("-", plant)
 
 
@@ -234,7 +262,7 @@ disease_info = {
         "disease": "Cedar Apple Rust",
         "care": (
             "Remove affected leaves and maintain good airflow. "
-            "Monitor the tree regularly."
+            "Monitor the tree regularly during humid conditions."
         )
     },
 
@@ -252,8 +280,9 @@ disease_info = {
         "plant": "Blueberry",
         "disease": "Healthy",
         "care": (
-            "Maintain suitable soil moisture, sunlight "
-            "and good nutrition."
+            "The blueberry plant appears healthy. "
+            "Maintain suitable soil moisture, "
+            "sunlight and nutrition."
         )
     },
 
@@ -262,7 +291,8 @@ disease_info = {
         "disease": "Powdery Mildew",
         "care": (
             "Remove severely affected leaves and "
-            "improve airflow. Avoid excessive humidity."
+            "improve airflow. Avoid excessive humidity "
+            "around the foliage."
         )
     },
 
@@ -270,6 +300,7 @@ disease_info = {
         "plant": "Cherry",
         "disease": "Healthy",
         "care": (
+            "The cherry plant appears healthy. "
             "Continue regular watering, sunlight "
             "and plant monitoring."
         )
@@ -280,7 +311,8 @@ disease_info = {
         "disease": "Cercospora Leaf Spot / Gray Leaf Spot",
         "care": (
             "Remove severely affected plant material "
-            "where practical and improve field airflow."
+            "where practical and improve field airflow. "
+            "Avoid prolonged leaf wetness."
         )
     },
 
@@ -289,7 +321,8 @@ disease_info = {
         "disease": "Common Rust",
         "care": (
             "Monitor rust symptoms and maintain good "
-            "plant nutrition."
+            "plant nutrition. Remove heavily affected "
+            "leaves when appropriate."
         )
     },
 
@@ -298,7 +331,8 @@ disease_info = {
         "disease": "Northern Leaf Blight",
         "care": (
             "Remove severely affected leaves and maintain "
-            "good airflow."
+            "good airflow. Avoid prolonged moisture "
+            "on foliage."
         )
     },
 
@@ -306,6 +340,7 @@ disease_info = {
         "plant": "Corn",
         "disease": "Healthy",
         "care": (
+            "The corn plant appears healthy. "
             "Maintain adequate water, sunlight "
             "and balanced nutrition."
         )
@@ -316,7 +351,8 @@ disease_info = {
         "disease": "Black Rot",
         "care": (
             "Remove infected berries and leaves. "
-            "Improve air circulation."
+            "Improve air circulation and avoid "
+            "prolonged moisture on foliage."
         )
     },
 
@@ -325,7 +361,8 @@ disease_info = {
         "disease": "Esca / Black Measles",
         "care": (
             "Remove severely affected plant material "
-            "and maintain good vineyard sanitation."
+            "and monitor the vine carefully. "
+            "Maintain good vineyard sanitation."
         )
     },
 
@@ -333,7 +370,9 @@ disease_info = {
         "plant": "Grape",
         "disease": "Leaf Blight",
         "care": (
-            "Remove affected leaves and improve airflow."
+            "Remove affected leaves and improve airflow "
+            "around the vine. Keep the foliage as dry "
+            "as practical."
         )
     },
 
@@ -341,6 +380,7 @@ disease_info = {
         "plant": "Grape",
         "disease": "Healthy",
         "care": (
+            "The grape plant appears healthy. "
             "Continue appropriate irrigation, sunlight "
             "and regular monitoring."
         )
@@ -350,8 +390,10 @@ disease_info = {
         "plant": "Orange",
         "disease": "Huanglongbing / Citrus Greening",
         "care": (
-            "Inspect regularly and control insect vectors "
-            "according to local agricultural guidance."
+            "Inspect the plant regularly and control "
+            "insect vectors according to local agricultural "
+            "guidance. Consult a local plant specialist "
+            "if symptoms persist."
         )
     },
 
@@ -360,7 +402,8 @@ disease_info = {
         "disease": "Bacterial Spot",
         "care": (
             "Remove severely affected material and "
-            "improve airflow."
+            "improve airflow. Avoid unnecessary leaf "
+            "wetness and monitor new growth."
         )
     },
 
@@ -368,6 +411,7 @@ disease_info = {
         "plant": "Peach",
         "disease": "Healthy",
         "care": (
+            "The peach plant appears healthy. "
             "Continue proper watering, sunlight "
             "and regular monitoring."
         )
@@ -377,8 +421,9 @@ disease_info = {
         "plant": "Bell Pepper",
         "disease": "Bacterial Spot",
         "care": (
-            "Remove severely infected leaves. "
-            "Avoid overhead watering."
+            "Remove severely infected leaves and "
+            "improve airflow. Avoid overhead watering "
+            "and keep foliage dry."
         )
     },
 
@@ -386,6 +431,7 @@ disease_info = {
         "plant": "Bell Pepper",
         "disease": "Healthy",
         "care": (
+            "The bell pepper plant appears healthy. "
             "Maintain good sunlight, watering "
             "and nutrition."
         )
@@ -396,7 +442,8 @@ disease_info = {
         "disease": "Early Blight",
         "care": (
             "Remove severely affected leaves and "
-            "maintain good airflow."
+            "maintain good airflow. Avoid prolonged "
+            "moisture on foliage."
         )
     },
 
@@ -405,7 +452,9 @@ disease_info = {
         "disease": "Late Blight",
         "care": (
             "Remove affected plant material promptly "
-            "and avoid prolonged leaf wetness."
+            "and avoid prolonged leaf wetness. "
+            "Seek local agricultural guidance if "
+            "symptoms spread rapidly."
         )
     },
 
@@ -413,6 +462,7 @@ disease_info = {
         "plant": "Potato",
         "disease": "Healthy",
         "care": (
+            "The potato plant appears healthy. "
             "Continue suitable watering, sunlight "
             "and regular monitoring."
         )
@@ -422,6 +472,7 @@ disease_info = {
         "plant": "Raspberry",
         "disease": "Healthy",
         "care": (
+            "The raspberry plant appears healthy. "
             "Maintain good sunlight, airflow "
             "and soil moisture."
         )
@@ -431,8 +482,9 @@ disease_info = {
         "plant": "Soybean",
         "disease": "Healthy",
         "care": (
+            "The soybean plant appears healthy. "
             "Continue proper irrigation, nutrition "
-            "and crop monitoring."
+            "and regular crop monitoring."
         )
     },
 
@@ -441,7 +493,8 @@ disease_info = {
         "disease": "Powdery Mildew",
         "care": (
             "Remove severely affected leaves and "
-            "improve airflow."
+            "improve airflow. Avoid excessive humidity "
+            "and prolonged leaf wetness."
         )
     },
 
@@ -450,7 +503,8 @@ disease_info = {
         "disease": "Leaf Scorch",
         "care": (
             "Remove severely damaged leaves and "
-            "maintain appropriate watering."
+            "maintain appropriate watering. Avoid "
+            "unnecessary stress and overcrowding."
         )
     },
 
@@ -458,6 +512,7 @@ disease_info = {
         "plant": "Strawberry",
         "disease": "Healthy",
         "care": (
+            "The strawberry plant appears healthy. "
             "Maintain suitable moisture, sunlight "
             "and good airflow."
         )
@@ -467,8 +522,9 @@ disease_info = {
         "plant": "Tomato",
         "disease": "Bacterial Spot",
         "care": (
-            "Remove severely affected leaves. "
-            "Avoid overhead watering."
+            "Remove severely affected leaves and "
+            "avoid overhead watering. Improve airflow "
+            "and keep foliage dry."
         )
     },
 
@@ -477,7 +533,8 @@ disease_info = {
         "disease": "Early Blight",
         "care": (
             "Remove infected lower leaves and improve "
-            "airflow. Water near the soil."
+            "airflow. Water near the soil rather than "
+            "directly onto foliage."
         )
     },
 
@@ -486,7 +543,8 @@ disease_info = {
         "disease": "Late Blight",
         "care": (
             "Remove severely affected leaves and fruit. "
-            "Keep foliage dry."
+            "Keep foliage dry and seek local agricultural "
+            "guidance if infection spreads quickly."
         )
     },
 
@@ -495,7 +553,8 @@ disease_info = {
         "disease": "Leaf Mold",
         "care": (
             "Improve ventilation and reduce excessive "
-            "humidity."
+            "humidity. Remove severely infected leaves "
+            "and avoid prolonged leaf wetness."
         )
     },
 
@@ -504,7 +563,7 @@ disease_info = {
         "disease": "Septoria Leaf Spot",
         "care": (
             "Remove affected leaves and improve airflow. "
-            "Avoid splashing water onto foliage."
+            "Avoid splashing water onto the foliage."
         )
     },
 
@@ -513,7 +572,8 @@ disease_info = {
         "disease": "Spider Mites",
         "care": (
             "Inspect the underside of leaves and remove "
-            "heavily affected leaves."
+            "heavily affected leaves. Maintain suitable "
+            "plant hydration and monitor mite activity."
         )
     },
 
@@ -521,7 +581,8 @@ disease_info = {
         "plant": "Tomato",
         "disease": "Target Spot",
         "care": (
-            "Remove affected leaves and improve airflow."
+            "Remove affected leaves and improve airflow. "
+            "Avoid prolonged moisture on foliage."
         )
     },
 
@@ -529,8 +590,9 @@ disease_info = {
         "plant": "Tomato",
         "disease": "Tomato Yellow Leaf Curl Virus",
         "care": (
-            "Inspect for whitefly activity and control "
-            "insect vectors according to local guidance."
+            "Inspect for whitefly activity and remove "
+            "severely affected plants where appropriate. "
+            "Control insect vectors according to local guidance."
         )
     },
 
@@ -539,7 +601,8 @@ disease_info = {
         "disease": "Tomato Mosaic Virus",
         "care": (
             "Remove severely affected plants and sanitize "
-            "tools after handling infected material."
+            "tools and hands after handling infected material. "
+            "Avoid spreading plant sap between plants."
         )
     },
 
@@ -576,13 +639,11 @@ def prepare_image(image):
     )
 
     x = (
-        IMAGE_SIZE[0] -
-        image.width
+        IMAGE_SIZE[0] - image.width
     ) // 2
 
     y = (
-        IMAGE_SIZE[1] -
-        image.height
+        IMAGE_SIZE[1] - image.height
     ) // 2
 
     background.paste(
@@ -604,15 +665,20 @@ def prepare_image(image):
 
 
 # ============================================================
-# SIMPLE NON-PLANT IMAGE CHECK
+# NEW:
+# BASIC PLANT IMAGE CHECK
+#
+# This is ONLY used to reject obvious non-plant images.
+# It does NOT change model loading or prediction.
 # ============================================================
 
 def looks_like_plant_image(image):
 
     image = image.convert("RGB")
 
+    # Resize only for this simple check
     small = image.resize(
-        (80, 80),
+        (100, 100),
         Image.Resampling.LANCZOS
     )
 
@@ -630,9 +696,9 @@ def looks_like_plant_image(image):
     # --------------------------------------------------------
 
     green_pixels = (
-        (g > r * 1.08) &
-        (g > b * 1.05) &
-        (g > 40)
+        (g > r * 1.05) &
+        (g > b * 1.03) &
+        (g > 45)
     )
 
     green_ratio = float(
@@ -640,12 +706,12 @@ def looks_like_plant_image(image):
     )
 
     # --------------------------------------------------------
-    # Brown / yellow leaf pixels
+    # Brown / yellow / dry leaf pixels
     # --------------------------------------------------------
 
     brown_pixels = (
-        (r > g * 1.08) &
-        (g > b * 1.08) &
+        (r > g * 1.05) &
+        (g > b * 1.10) &
         (r > 50) &
         (g > 35)
     )
@@ -655,13 +721,14 @@ def looks_like_plant_image(image):
     )
 
     # --------------------------------------------------------
-    # Dark green pixels
+    # Dark natural leaf pixels
     # --------------------------------------------------------
 
     dark_green_pixels = (
-        (g > r * 1.02) &
-        (g > b * 1.02) &
-        (g < 150)
+        (g > r * 0.95) &
+        (g > b * 1.05) &
+        (g > 30) &
+        (r < 130)
     )
 
     dark_green_ratio = float(
@@ -669,34 +736,38 @@ def looks_like_plant_image(image):
     )
 
     print(
-        "Green:",
+        "Green ratio:",
         round(green_ratio * 100, 2),
         "%"
     )
 
     print(
-        "Brown:",
+        "Brown ratio:",
         round(brown_ratio * 100, 2),
         "%"
     )
 
     print(
-        "Dark green:",
+        "Dark-green ratio:",
         round(dark_green_ratio * 100, 2),
         "%"
     )
 
     # --------------------------------------------------------
-    # Plant-like image
+    # Plant decision
+    #
+    # IMPORTANT:
+    # This rejects obvious car / building / people /
+    # random photos while allowing green or dry leaves.
     # --------------------------------------------------------
 
-    if green_ratio >= 0.04:
+    if green_ratio >= 0.06:
         return True
 
-    if brown_ratio >= 0.07:
+    if brown_ratio >= 0.08:
         return True
 
-    if dark_green_ratio >= 0.04:
+    if dark_green_ratio >= 0.08:
         return True
 
     return False
@@ -729,6 +800,21 @@ def home():
 
 
 # ============================================================
+# HEALTH
+# ============================================================
+
+@app.route("/health")
+def health():
+
+    return {
+        "status": "online",
+        "model": "Plant Disease Model",
+        "classes": len(class_names),
+        "plants": len(plant_names)
+    }
+
+
+# ============================================================
 # PREDICT
 # ============================================================
 
@@ -743,10 +829,6 @@ def predict():
     print("NEW IMAGE RECEIVED")
     print("=" * 60)
 
-    # --------------------------------------------------------
-    # FILE CHECK
-    # --------------------------------------------------------
-
     if "image" not in request.files:
 
         return show_error(
@@ -755,7 +837,7 @@ def predict():
 
     file = request.files["image"]
 
-    if file.filename == "":
+    if not file.filename:
 
         return show_error(
             "Please select a plant image."
@@ -767,126 +849,125 @@ def predict():
         # OPEN IMAGE
         # ----------------------------------------------------
 
-        original_image = Image.open(
+        image = Image.open(
             file.stream
         ).convert("RGB")
 
         print(
             "Image size:",
-            original_image.size
+            image.size
         )
 
+
         # ----------------------------------------------------
-        # IMAGE SIZE CHECK
+        # BASIC SIZE CHECK
         # ----------------------------------------------------
 
         if (
-            original_image.width < 100
+            image.width < 80
             or
-            original_image.height < 100
+            image.height < 80
         ):
 
             return show_error(
-                "Please upload a clear plant or leaf image."
+                "Please upload a larger and clearer "
+                "plant leaf image."
             )
 
-        # ----------------------------------------------------
-        # BASIC PLANT CHECK
-        # ----------------------------------------------------
 
-        if not looks_like_plant_image(
-            original_image
-        ):
+        # ====================================================
+        # NEW:
+        # REJECT OBVIOUS NON-PLANT IMAGES
+        #
+        # This happens BEFORE AI prediction.
+        # ====================================================
+
+        print()
+        print("Checking whether image looks like a plant...")
+
+        if not looks_like_plant_image(image):
 
             print(
-                "REJECTED: image does not look like a plant"
+                "IMAGE REJECTED - NOT A PLANT IMAGE"
             )
 
             return show_error(
-                "❌ This does not appear to be a plant image. "
-                "Please upload a clear leaf or plant photo."
+                "This does not appear to be a plant image. "
+                "Please upload a clear photo of a plant leaf."
             )
+
+        print(
+            "Image passed basic plant check."
+        )
+
 
         # ----------------------------------------------------
         # PREPARE IMAGE
         # ----------------------------------------------------
 
         image_array = prepare_image(
-            original_image
+            image
         )
 
+        print(
+            "Prepared image:",
+            image_array.shape
+        )
+
+
         # ----------------------------------------------------
-        # MODEL PREDICTION
+        # PREDICTION
         # ----------------------------------------------------
 
-        predictions = model.predict(
+        print("Running AI prediction...")
+
+        predictions = model(
             image_array,
-            verbose=0
-        )
+            training=False
+        ).numpy()[0]
 
-        probabilities = np.asarray(
-            predictions[0],
-            dtype=np.float32
-        )
+        print("Prediction completed.")
+
 
         # ----------------------------------------------------
         # CHECK OUTPUT
         # ----------------------------------------------------
 
-        if len(probabilities) != len(class_names):
+        if len(predictions) != len(class_names):
 
             return show_error(
-                "AI model configuration error."
+                "Model configuration error. "
+                "Please check class_names.json."
             )
 
+
         # ----------------------------------------------------
-        # NORMALIZE IF NECESSARY
+        # SOFTMAX SAFETY
         # ----------------------------------------------------
 
-        total = float(
-            np.sum(probabilities)
+        prediction_sum = float(
+            np.sum(predictions)
         )
 
-        if total > 0:
-
-            probabilities = (
-                probabilities / total
-            )
-
-        # ----------------------------------------------------
-        # TOP PREDICTIONS
-        # ----------------------------------------------------
-
-        top_indices = np.argsort(
-            probabilities
-        )[-5:][::-1]
-
-        print()
-        print("TOP PREDICTIONS")
-
-        for rank, index in enumerate(
-            top_indices,
-            start=1
+        if (
+            np.any(predictions < 0)
+            or
+            np.any(predictions > 1)
+            or
+            abs(prediction_sum - 1.0) > 0.05
         ):
 
-            print(
-                rank,
-                class_names[int(index)],
-                round(
-                    float(
-                        probabilities[index] * 100
-                    ),
-                    2
-                ),
-                "%"
-            )
+            predictions = tf.nn.softmax(
+                predictions
+            ).numpy()
+
 
         # ----------------------------------------------------
-        # FINAL PREDICTION
+        # TOP PREDICTION
         # ----------------------------------------------------
 
         predicted_index = int(
-            np.argmax(probabilities)
+            np.argmax(predictions)
         )
 
         predicted_class = class_names[
@@ -894,25 +975,24 @@ def predict():
         ]
 
         confidence = float(
-            probabilities[
-                predicted_index
-            ] * 100
+            predictions[predicted_index] * 100
         )
 
+
         # ----------------------------------------------------
-        # TOP 2
+        # SECOND PREDICTION
         # ----------------------------------------------------
 
-        sorted_probabilities = np.sort(
-            probabilities
+        sorted_values = np.sort(
+            predictions
         )
 
         top_probability = float(
-            sorted_probabilities[-1]
+            sorted_values[-1]
         )
 
         second_probability = float(
-            sorted_probabilities[-2]
+            sorted_values[-2]
         )
 
         margin = (
@@ -920,11 +1000,14 @@ def predict():
             second_probability
         ) * 100
 
+
+        # ----------------------------------------------------
+        # LOG RESULT
+        # ----------------------------------------------------
+
         print()
-        print(
-            "Prediction:",
-            predicted_class
-        )
+        print("Prediction:")
+        print(predicted_class)
 
         print(
             "Confidence:",
@@ -938,6 +1021,7 @@ def predict():
             "%"
         )
 
+
         # ----------------------------------------------------
         # CONFIDENCE CHECK
         # ----------------------------------------------------
@@ -945,13 +1029,15 @@ def predict():
         if confidence < CONFIDENCE_THRESHOLD:
 
             print(
-                "REJECTED: LOW CONFIDENCE"
+                "Prediction rejected: low confidence."
             )
 
             return show_error(
-                "❌ The AI could not identify this image "
-                "reliably. Please upload a clear plant leaf image."
+                "The AI could not identify this image "
+                "with enough confidence. Please upload "
+                "a clear close-up photo of a plant leaf."
             )
+
 
         # ----------------------------------------------------
         # MARGIN CHECK
@@ -960,13 +1046,14 @@ def predict():
         if margin < MARGIN_THRESHOLD:
 
             print(
-                "REJECTED: UNCERTAIN"
+                "Prediction rejected: uncertain."
             )
 
             return show_error(
-                "❌ The AI is uncertain about this image. "
-                "Please upload a clearer plant leaf photo."
+                "The AI is uncertain about this image. "
+                "Please upload a clearer plant leaf image."
             )
+
 
         # ----------------------------------------------------
         # DISEASE INFORMATION
@@ -975,6 +1062,7 @@ def predict():
         info = disease_info.get(
             predicted_class
         )
+
 
         if info is not None:
 
@@ -994,16 +1082,19 @@ def predict():
                 predicted_class
                 .split("___")[-1]
                 .replace("_", " ")
+                .strip()
             )
 
             care = (
-                "Monitor the plant regularly and "
-                "consult a local agricultural expert "
-                "if symptoms continue."
+                "Monitor the plant regularly. "
+                "Maintain proper watering, sunlight "
+                "and airflow. Consult a local agricultural "
+                "expert if symptoms continue."
             )
 
+
         # ----------------------------------------------------
-        # SEVERITY
+        # STATUS
         # ----------------------------------------------------
 
         if disease.lower() == "healthy":
@@ -1024,22 +1115,29 @@ def predict():
 
             status = "POSSIBLE DISEASE"
 
+
         # ----------------------------------------------------
-        # SUCCESS
+        # CLEAN MEMORY
+        # ----------------------------------------------------
+
+        del image_array
+        del predictions
+
+        gc.collect()
+
+
+        # ----------------------------------------------------
+        # FINAL RESULT
         # ----------------------------------------------------
 
         print()
-        print("IMAGE ACCEPTED")
+        print("=" * 60)
+        print("RESULT")
+        print("=" * 60)
 
-        print(
-            "Plant:",
-            plant
-        )
+        print("Plant:", plant)
 
-        print(
-            "Disease:",
-            disease
-        )
+        print("Disease:", disease)
 
         print(
             "Confidence:",
@@ -1047,11 +1145,10 @@ def predict():
             "%"
         )
 
+        print("Severity:", severity)
+
         print("=" * 60)
 
-        # ----------------------------------------------------
-        # RESULT
-        # ----------------------------------------------------
 
         return render_template(
             "index.html",
@@ -1074,6 +1171,7 @@ def predict():
             plant_names=plant_names
         )
 
+
     except Exception as e:
 
         print()
@@ -1087,31 +1185,16 @@ def predict():
 
         print("=" * 60)
 
+        gc.collect()
+
         return show_error(
             "Unable to analyze this image. "
-            "Please upload a clear plant image."
+            "Please upload a clear plant leaf image."
         )
 
 
 # ============================================================
-# HEALTH CHECK
-# ============================================================
-
-@app.route("/health")
-def health():
-
-    return {
-        "status": "online",
-        "model": "Plant Disease Model",
-        "classes": len(class_names),
-        "plants": len(plant_names),
-        "confidence_threshold": CONFIDENCE_THRESHOLD,
-        "margin_threshold": MARGIN_THRESHOLD
-    }
-
-
-# ============================================================
-# START SERVER
+# RUN LOCAL SERVER
 # ============================================================
 
 if __name__ == "__main__":
@@ -1119,28 +1202,17 @@ if __name__ == "__main__":
     port = int(
         os.environ.get(
             "PORT",
-            5000
+            "5000"
         )
     )
 
     print()
     print("=" * 60)
-    print("AI PLANT CARE SYSTEM")
+    print("SERVER STARTING")
     print("=" * 60)
 
     print(
-        "Model:",
-        MODEL_PATH
-    )
-
-    print(
-        "Classes:",
-        len(class_names)
-    )
-
-    print(
-        "Plants:",
-        len(plant_names)
+        "Host: 0.0.0.0"
     )
 
     print(
@@ -1154,5 +1226,6 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=port,
         debug=False,
-        use_reloader=False
+        use_reloader=False,
+        threaded=False
     )
