@@ -4,8 +4,7 @@ import json
 
 # ============================================================
 # TENSORFLOW RESOURCE SETTINGS
-# IMPORTANT:
-# These MUST be set BEFORE importing TensorFlow.
+# MUST BE BEFORE IMPORTING TENSORFLOW
 # ============================================================
 
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -27,15 +26,25 @@ app = Flask(__name__)
 # SECRET KEY
 # ============================================================
 
-app.secret_key = "plantai_secret_key_2026"
+app.secret_key = os.environ.get(
+    "FLASK_SECRET_KEY",
+    "plantai_secret_key_2026"
+)
 
 
 # ============================================================
 # LOGIN SETTINGS
 # ============================================================
 
-LOGIN_USERNAME = "admin"
-LOGIN_PASSWORD = "1234"
+LOGIN_USERNAME = os.environ.get(
+    "LOGIN_USERNAME",
+    "admin"
+)
+
+LOGIN_PASSWORD = os.environ.get(
+    "LOGIN_PASSWORD",
+    "1234"
+)
 
 
 # ============================================================
@@ -60,11 +69,10 @@ CLASS_NAMES_PATH = os.path.join(
 
 
 # ============================================================
-# SETTINGS
+# AI SETTINGS
 # ============================================================
 
 CONFIDENCE_THRESHOLD = 65.0
-
 MARGIN_THRESHOLD = 10.0
 
 IMAGE_SIZE = (224, 224)
@@ -75,51 +83,111 @@ IMAGE_SIZE = (224, 224)
 # ============================================================
 
 print("=" * 60)
-print("Loading Plant Disease AI model...")
+print("AI PLANT CARE SYSTEM")
 print("=" * 60)
 
-if not os.path.exists(MODEL_PATH):
+print("Checking model...")
 
+if not os.path.isfile(MODEL_PATH):
     raise FileNotFoundError(
-        "Model not found:\n" +
-        MODEL_PATH
+        "MODEL FILE NOT FOUND: " + MODEL_PATH
+    )
+
+if not os.path.isfile(CLASS_NAMES_PATH):
+    raise FileNotFoundError(
+        "CLASS NAMES FILE NOT FOUND: " +
+        CLASS_NAMES_PATH
     )
 
 
-model = tf.keras.models.load_model(
-    MODEL_PATH,
-    compile=False
-)
+print("Model path:")
+print(MODEL_PATH)
 
-print(
-    "Model loaded successfully."
-)
+print("Class names path:")
+print(CLASS_NAMES_PATH)
 
-print(
-    "Model input shape:",
-    model.input_shape
-)
+print("Loading TensorFlow model...")
+
+try:
+
+    model = tf.keras.models.load_model(
+        MODEL_PATH,
+        compile=False
+    )
+
+    print("Model loaded successfully.")
+
+except Exception as e:
+
+    print("=" * 60)
+    print("MODEL LOADING ERROR")
+    print("=" * 60)
+    print(str(e))
+    print("=" * 60)
+
+    raise
 
 
 # ============================================================
 # LOAD CLASS NAMES
 # ============================================================
 
-if not os.path.exists(CLASS_NAMES_PATH):
+try:
 
-    raise FileNotFoundError(
-        "Class names file not found:\n" +
-        CLASS_NAMES_PATH
+    with open(
+        CLASS_NAMES_PATH,
+        "r",
+        encoding="utf-8"
+    ) as f:
+
+        class_names = json.load(f)
+
+except Exception as e:
+
+    print("=" * 60)
+    print("CLASS NAMES ERROR")
+    print("=" * 60)
+    print(str(e))
+    print("=" * 60)
+
+    raise
+
+
+# ============================================================
+# NORMALIZE CLASS NAMES
+# ============================================================
+
+if isinstance(class_names, dict):
+
+    # Support JSON such as:
+    # {"0": "Apple___Apple_scab", ...}
+
+    try:
+
+        class_names = [
+            class_names[str(i)]
+            for i in range(len(class_names))
+        ]
+
+    except Exception:
+
+        class_names = list(
+            class_names.values()
+        )
+
+
+if not isinstance(class_names, list):
+
+    raise ValueError(
+        "class_names.json must contain a list "
+        "of class names."
     )
 
 
-with open(
-    CLASS_NAMES_PATH,
-    "r",
-    encoding="utf-8"
-) as f:
-
-    class_names = json.load(f)
+class_names = [
+    str(name)
+    for name in class_names
+]
 
 
 print(
@@ -129,12 +197,12 @@ print(
 
 
 # ============================================================
-# CHECK MODEL / CLASS COUNT
+# CHECK MODEL OUTPUT
 # ============================================================
 
 try:
 
-    model_output_classes = (
+    model_output_classes = int(
         model.output_shape[-1]
     )
 
@@ -148,30 +216,40 @@ try:
         len(class_names)
     )
 
-    if (
-        model_output_classes
-        !=
-        len(class_names)
-    ):
+    if model_output_classes != len(class_names):
 
-        print()
-        print("WARNING!")
-        print(
-            "Model classes and JSON classes "
-            "do not match."
-        )
-
-        print(
-            "Make sure class_names.json "
-            "belongs to this model."
+        raise ValueError(
+            "MODEL/CLASS COUNT MISMATCH: "
+            f"Model has {model_output_classes} outputs "
+            f"but class_names.json has "
+            f"{len(class_names)} classes."
         )
 
 except Exception as e:
 
+    print("=" * 60)
+    print("MODEL CONFIGURATION ERROR")
+    print("=" * 60)
+    print(str(e))
+    print("=" * 60)
+
+    raise
+
+
+# ============================================================
+# MODEL INPUT INFORMATION
+# ============================================================
+
+try:
+
     print(
-        "Could not check model output classes:",
-        e
+        "Model input shape:",
+        model.input_shape
     )
+
+except Exception:
+
+    pass
 
 
 # ============================================================
@@ -182,9 +260,10 @@ def get_plant_name(class_name):
 
     if "___" in class_name:
 
-        plant_name = (
-            class_name.split("___")[0]
-        )
+        plant_name = class_name.split(
+            "___",
+            1
+        )[0]
 
     else:
 
@@ -215,7 +294,7 @@ def get_plant_name(class_name):
 
 
 # ============================================================
-# PLANT NAMES
+# PLANT LIST
 # ============================================================
 
 plant_names = sorted(
@@ -229,14 +308,11 @@ plant_names = sorted(
 
 
 print()
-print("Plants used:")
+print("Plants detected:")
 
 for plant in plant_names:
 
-    print(
-        " -",
-        plant
-    )
+    print(" -", plant)
 
 
 # ============================================================
@@ -334,9 +410,7 @@ disease_info = {
 
     "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot": {
         "plant": "Corn",
-        "disease": (
-            "Cercospora Leaf Spot / Gray Leaf Spot"
-        ),
+        "disease": "Cercospora Leaf Spot / Gray Leaf Spot",
         "care": (
             "Remove severely affected plant material "
             "where practical and improve field airflow. "
@@ -426,9 +500,7 @@ disease_info = {
 
     "Orange___Haunglongbing_(Citrus_greening)": {
         "plant": "Orange",
-        "disease": (
-            "Huanglongbing / Citrus Greening"
-        ),
+        "disease": "Huanglongbing / Citrus Greening",
         "care": (
             "Inspect the plant regularly and control "
             "insect vectors according to local agricultural "
@@ -668,9 +740,7 @@ disease_info = {
 
     "Tomato___Tomato_Yellow_Leaf_Curl_Virus": {
         "plant": "Tomato",
-        "disease": (
-            "Tomato Yellow Leaf Curl Virus"
-        ),
+        "disease": "Tomato Yellow Leaf Curl Virus",
         "care": (
             "Inspect for whitefly activity and remove "
             "severely affected plants where appropriate. "
@@ -749,7 +819,7 @@ def prepare_image(image):
 
 
 # ============================================================
-# BASIC PLANT IMAGE CHECK
+# PLANT IMAGE CHECK
 # ============================================================
 
 def looks_like_plant_image(image):
@@ -767,9 +837,7 @@ def looks_like_plant_image(image):
     )
 
     r = arr[:, :, 0]
-
     g = arr[:, :, 1]
-
     b = arr[:, :, 2]
 
 
@@ -798,7 +866,7 @@ def looks_like_plant_image(image):
 
 
     # --------------------------------------------------------
-    # BROWN / DRY LEAF PIXELS
+    # BROWN PIXELS
     # --------------------------------------------------------
 
     brown_pixels = (
@@ -831,31 +899,25 @@ def looks_like_plant_image(image):
 
 
     print(
-        "Green pixel ratio:",
+        "Green ratio:",
         round(
-            float(
-                green_ratio * 100
-            ),
+            float(green_ratio * 100),
             2
         ),
         "%"
     )
 
-
     print(
-        "Brown pixel ratio:",
+        "Brown ratio:",
         round(
-            float(
-                brown_ratio * 100
-            ),
+            float(brown_ratio * 100),
             2
         ),
         "%"
     )
 
-
     print(
-        "Average brightness:",
+        "Brightness:",
         round(
             float(brightness),
             2
@@ -877,7 +939,7 @@ def looks_like_plant_image(image):
 
 
 # ============================================================
-# COMMON ERROR PAGE
+# ERROR PAGE
 # ============================================================
 
 def show_error(message):
@@ -885,7 +947,8 @@ def show_error(message):
     return render_template(
         "index.html",
         error=message,
-        plant_names=plant_names
+        plant_names=plant_names,
+        username=session.get("username")
     )
 
 
@@ -899,20 +962,12 @@ def show_error(message):
 )
 def login():
 
-    # --------------------------------------------------------
-    # ALREADY LOGGED IN
-    # --------------------------------------------------------
-
     if session.get("logged_in"):
 
         return redirect(
             url_for("home")
         )
 
-
-    # --------------------------------------------------------
-    # LOGIN FORM SUBMITTED
-    # --------------------------------------------------------
 
     if request.method == "POST":
 
@@ -927,54 +982,36 @@ def login():
         )
 
 
-        # ----------------------------------------------------
-        # CHECK USERNAME AND PASSWORD
-        # ----------------------------------------------------
-
         if (
             username == LOGIN_USERNAME
             and
             password == LOGIN_PASSWORD
         ):
 
-            session["logged_in"] = True
+            session.clear()
 
+            session["logged_in"] = True
             session["username"] = username
 
-            print()
-            print("=" * 60)
-            print("USER LOGIN SUCCESSFUL")
             print(
-                "Username:",
+                "LOGIN SUCCESSFUL:",
                 username
             )
-            print("=" * 60)
-
 
             return redirect(
                 url_for("home")
             )
 
 
-        # ----------------------------------------------------
-        # LOGIN FAILED
-        # ----------------------------------------------------
-
-        print()
         print(
             "LOGIN FAILED"
         )
-
 
         return render_template(
             "login.html",
             error="Invalid username or password."
         )
 
-
-    # --------------------------------------------------------
-    # SHOW LOGIN PAGE
-    # --------------------------------------------------------
 
     return render_template(
         "login.html"
@@ -993,16 +1030,12 @@ def logout():
         "Unknown"
     )
 
-
-    print()
     print(
         "USER LOGGED OUT:",
         username
     )
 
-
     session.clear()
-
 
     return redirect(
         url_for("login")
@@ -1016,10 +1049,6 @@ def logout():
 @app.route("/")
 def home():
 
-    # --------------------------------------------------------
-    # LOGIN PROTECTION
-    # --------------------------------------------------------
-
     if not session.get("logged_in"):
 
         return redirect(
@@ -1027,13 +1056,10 @@ def home():
         )
 
 
-    # --------------------------------------------------------
-    # EXISTING PLANTAI WEBSITE
-    # --------------------------------------------------------
-
     return render_template(
         "index.html",
-        plant_names=plant_names
+        plant_names=plant_names,
+        username=session.get("username")
     )
 
 
@@ -1046,10 +1072,6 @@ def home():
     methods=["POST"]
 )
 def predict():
-
-    # --------------------------------------------------------
-    # LOGIN PROTECTION
-    # --------------------------------------------------------
 
     if not session.get("logged_in"):
 
@@ -1065,7 +1087,7 @@ def predict():
 
 
     # ========================================================
-    # CHECK IMAGE FIELD
+    # CHECK IMAGE
     # ========================================================
 
     if "image" not in request.files:
@@ -1078,7 +1100,7 @@ def predict():
     file = request.files["image"]
 
 
-    if file.filename == "":
+    if not file or file.filename == "":
 
         return show_error(
             "Please select a plant image."
@@ -1097,56 +1119,44 @@ def predict():
 
 
         print(
-            "Original image size:",
+            "Original image:",
             original_image.size
         )
 
 
         # ====================================================
-        # IMAGE SIZE CHECK
+        # SIZE CHECK
         # ====================================================
 
         if (
-
             original_image.width < 80
-
             or
-
             original_image.height < 80
+        ):
 
+            return show_error(
+                "Image is too small. "
+                "Please upload a clear leaf image."
+            )
+
+
+        # ====================================================
+        # PLANT CHECK
+        # ====================================================
+
+        if not looks_like_plant_image(
+            original_image
         ):
 
             print(
-                "IMAGE REJECTED - IMAGE TOO SMALL"
+                "IMAGE REJECTED: "
+                "Does not look like a plant."
             )
-
 
             return show_error(
-                "Image could not be reliably identified. "
-                "Please upload a clear leaf image."
-            )
-
-
-        # ====================================================
-        # PLANT IMAGE CHECK
-        # ====================================================
-
-        plant_like = looks_like_plant_image(
-            original_image
-        )
-
-
-        if not plant_like:
-
-            print(
-                "IMAGE REJECTED - "
-                "DOES NOT LOOK LIKE A PLANT"
-            )
-
-
-            return show_error(
-                "Image could not be reliably identified. "
-                "Please upload a clear leaf image."
+                "This image does not look like "
+                "a plant leaf. Please upload a "
+                "clear plant image."
             )
 
 
@@ -1160,13 +1170,13 @@ def predict():
 
 
         print(
-            "Model input shape:",
+            "Prepared image:",
             image_array.shape
         )
 
 
         # ====================================================
-        # MODEL PREDICTION
+        # PREDICTION
         # ====================================================
 
         predictions = model.predict(
@@ -1175,33 +1185,67 @@ def predict():
         )
 
 
-        probabilities = predictions[0]
+        probabilities = np.asarray(
+            predictions[0],
+            dtype=np.float32
+        )
 
 
         # ====================================================
         # SAFETY CHECK
         # ====================================================
 
-        if (
-            len(probabilities)
-            !=
-            len(class_names)
-        ):
+        if len(probabilities) != len(class_names):
 
             print(
-                "ERROR: Model output and class names "
-                "do not match."
+                "MODEL/CLASS NAME MISMATCH"
             )
 
-
             return show_error(
-                "The AI model configuration is incorrect. "
-                "Please check the model and class_names.json."
+                "AI model configuration error. "
+                "Please check plant_disease_model.keras "
+                "and class_names.json."
             )
 
 
         # ====================================================
-        # TOP 5 PREDICTIONS
+        # NORMALIZE PREDICTIONS IF NECESSARY
+        # ====================================================
+
+        probabilities = np.nan_to_num(
+            probabilities,
+            nan=0.0,
+            posinf=0.0,
+            neginf=0.0
+        )
+
+
+        # If model outputs logits rather than probabilities,
+        # convert them to probabilities.
+
+        total = float(
+            np.sum(probabilities)
+        )
+
+        if (
+            np.any(probabilities < 0)
+            or
+            abs(total - 1.0) > 0.01
+        ):
+
+            exp_values = np.exp(
+                probabilities -
+                np.max(probabilities)
+            )
+
+            probabilities = (
+                exp_values /
+                np.sum(exp_values)
+            )
+
+
+        # ====================================================
+        # TOP 5
         # ====================================================
 
         top_indices = np.argsort(
@@ -1211,11 +1255,10 @@ def predict():
 
         print()
         print(
-            "TOP 5 AI PREDICTIONS"
+            "TOP 5 PREDICTIONS"
         )
-        print(
-            "-" * 60
-        )
+
+        print("-" * 60)
 
 
         for rank, index in enumerate(
@@ -1224,33 +1267,21 @@ def predict():
         ):
 
             print(
-
                 rank,
-
                 ".",
-
-                class_names[
-                    int(index)
-                ],
-
+                class_names[int(index)],
                 "->",
-
                 round(
                     float(
-                        probabilities[index]
-                        * 100
+                        probabilities[index] * 100
                     ),
                     2
                 ),
-
                 "%"
-
             )
 
 
-        print(
-            "-" * 60
-        )
+        print("-" * 60)
 
 
         # ====================================================
@@ -1277,7 +1308,7 @@ def predict():
 
 
         # ====================================================
-        # TOP-2 MARGIN
+        # TOP 2 MARGIN
         # ====================================================
 
         sorted_probabilities = np.sort(
@@ -1290,26 +1321,28 @@ def predict():
         )
 
 
-        second_probability = float(
-            sorted_probabilities[-2]
-        )
+        if len(sorted_probabilities) > 1:
+
+            second_probability = float(
+                sorted_probabilities[-2]
+            )
+
+        else:
+
+            second_probability = 0.0
 
 
         margin = (
-
             top_probability -
-
             second_probability
-
         ) * 100
 
 
         print()
         print(
-            "FINAL PREDICTION:",
+            "FINAL:",
             predicted_class
         )
-
 
         print(
             "CONFIDENCE:",
@@ -1320,9 +1353,8 @@ def predict():
             "%"
         )
 
-
         print(
-            "TOP-2 MARGIN:",
+            "MARGIN:",
             round(
                 margin,
                 2
@@ -1338,13 +1370,13 @@ def predict():
         if confidence < CONFIDENCE_THRESHOLD:
 
             print(
-                "IMAGE REJECTED - LOW CONFIDENCE"
+                "REJECTED: LOW CONFIDENCE"
             )
 
-
             return show_error(
-                "Image could not be reliably identified. "
-                "Please upload a clear leaf image."
+                "The AI could not identify this image "
+                "with enough confidence. Please upload "
+                "a clear close-up image of a plant leaf."
             )
 
 
@@ -1355,27 +1387,32 @@ def predict():
         if margin < MARGIN_THRESHOLD:
 
             print(
-                "IMAGE REJECTED - "
-                "UNCERTAIN PREDICTION"
+                "REJECTED: UNCERTAIN"
             )
-
 
             return show_error(
                 "The AI is uncertain about this image. "
-                "Please upload a clear leaf image."
+                "Please upload a clearer plant leaf image."
             )
 
 
         # ====================================================
         # DISEASE INFORMATION
-        # ========================================================
+        # ====================================================
 
         info = disease_info.get(
             predicted_class
         )
 
 
-        if info is None:
+        if info is not None:
+
+            plant = info["plant"]
+            disease = info["disease"]
+            care = info["care"]
+
+
+        else:
 
             plant = get_plant_name(
                 predicted_class
@@ -1383,33 +1420,18 @@ def predict():
 
 
             disease = (
-
                 predicted_class
-
                 .split("___")[-1]
-
-                .replace(
-                    "_",
-                    " "
-                )
-
+                .replace("_", " ")
+                .strip()
             )
 
 
             care = (
-                "Monitor the plant regularly "
-                "and consult a local agricultural "
-                "expert if symptoms continue."
+                "Monitor the plant regularly and "
+                "consult a local agricultural expert "
+                "if symptoms continue."
             )
-
-
-        else:
-
-            plant = info["plant"]
-
-            disease = info["disease"]
-
-            care = info["care"]
 
 
         # ====================================================
@@ -1438,7 +1460,7 @@ def predict():
 
 
         # ====================================================
-        # SUCCESS LOG
+        # SUCCESS
         # ====================================================
 
         print()
@@ -1446,32 +1468,35 @@ def predict():
             "IMAGE ACCEPTED"
         )
 
-
         print(
             "Plant:",
             plant
         )
-
 
         print(
             "Disease:",
             disease
         )
 
+        print(
+            "Confidence:",
+            round(
+                confidence,
+                2
+            ),
+            "%"
+        )
 
         print(
             "Severity:",
             severity
         )
 
-
-        print(
-            "=" * 60
-        )
+        print("=" * 60)
 
 
         # ====================================================
-        # SHOW RESULT
+        # RESULT PAGE
         # ====================================================
 
         return render_template(
@@ -1493,39 +1518,29 @@ def predict():
 
             status=status,
 
-            plant_names=plant_names
+            plant_names=plant_names,
+
+            username=session.get("username")
 
         )
 
-
-    # ========================================================
-    # ERROR HANDLING
-    # ========================================================
 
     except Exception as e:
 
         print()
-        print(
-            "=" * 60
-        )
+        print("=" * 60)
+        print("PREDICTION ERROR")
+        print("=" * 60)
 
         print(
-            "PREDICTION ERROR"
+            type(e).__name__
         )
-
-        print(
-            "=" * 60
-        )
-
 
         print(
             str(e)
         )
 
-
-        print(
-            "=" * 60
-        )
+        print("=" * 60)
 
 
         return show_error(
@@ -1536,9 +1551,6 @@ def predict():
 
 # ============================================================
 # HEALTH CHECK
-# IMPORTANT:
-# DO NOT PROTECT THIS ROUTE WITH LOGIN.
-# Render can use this endpoint to check the application.
 # ============================================================
 
 @app.route("/health")
@@ -1548,14 +1560,11 @@ def health():
 
         "status": "online",
 
-        "model":
-            "Plant Disease MobileNetV2",
+        "model": "plant_disease_model.keras",
 
-        "classes":
-            len(class_names),
+        "classes": len(class_names),
 
-        "plants":
-            len(plant_names),
+        "plants": len(plant_names),
 
         "confidence_threshold":
             CONFIDENCE_THRESHOLD,
@@ -1567,6 +1576,57 @@ def health():
 
 
 # ============================================================
+# FAVICON
+# Prevent unnecessary 404 messages
+# ============================================================
+
+@app.route("/favicon.ico")
+def favicon():
+
+    return "", 204
+
+
+# ============================================================
+# ERROR HANDLERS
+# ============================================================
+
+@app.errorhandler(413)
+def file_too_large(error):
+
+    return show_error(
+        "The uploaded image is too large. "
+        "Please choose a smaller image."
+    )
+
+
+@app.errorhandler(404)
+def page_not_found(error):
+
+    return redirect(
+        url_for("home")
+    )
+
+
+@app.errorhandler(500)
+def internal_server_error(error):
+
+    print(
+        "INTERNAL SERVER ERROR:",
+        error
+    )
+
+    return render_template(
+        "index.html",
+        error=(
+            "Something went wrong while processing "
+            "the request. Please try again."
+        ),
+        plant_names=plant_names,
+        username=session.get("username")
+    ), 500
+
+
+# ============================================================
 # RUN SERVER
 # ============================================================
 
@@ -1574,108 +1634,66 @@ if __name__ == "__main__":
 
     print()
     print("=" * 60)
-    print(
-        "AI PLANT CARE SYSTEM"
-    )
+    print("AI PLANT CARE SYSTEM")
     print("=" * 60)
-
 
     print(
         "Model:",
         MODEL_PATH
     )
 
-
     print(
         "Classes:",
         len(class_names)
     )
-
 
     print(
         "Plants:",
         len(plant_names)
     )
 
-
     print(
-        "Confidence threshold:",
+        "Confidence:",
         CONFIDENCE_THRESHOLD,
         "%"
     )
 
-
     print(
-        "Top-2 margin threshold:",
+        "Margin:",
         MARGIN_THRESHOLD,
         "%"
     )
 
-
     print()
-    print(
-        "LOGIN DETAILS"
-    )
-
     print(
         "Username:",
         LOGIN_USERNAME
     )
 
     print(
-        "Password:",
-        LOGIN_PASSWORD
-    )
-
-
-    print()
-    print(
-        "Login:"
-    )
-
-    print(
-        "http://127.0.0.1:5000/login"
-    )
-
-
-    print()
-    print(
         "Server starting..."
     )
-
-
-    print()
-    print(
-        "Computer:"
-    )
-
-    print(
-        "http://127.0.0.1:5000"
-    )
-
-
-    print()
-    print(
-        "Phone:"
-    )
-
-    print(
-        "http://192.168.43.248:5000"
-    )
-
 
     print("=" * 60)
 
 
     # ========================================================
-    # IMPORTANT FOR SPYDER
+    # RENDER + PHONE + LOCAL NETWORK
     # ========================================================
+
+    port = int(
+        os.environ.get(
+            "PORT",
+            5000
+        )
+    )
+
 
     app.run(
 
         host="0.0.0.0",
 
-        port=5000,
+        port=port,
 
         debug=False,
 
