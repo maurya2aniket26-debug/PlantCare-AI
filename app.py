@@ -3,10 +3,12 @@ import json
 import logging
 
 from flask import Flask, render_template, request
+from PIL import Image, ImageOps
+import numpy as np
 
 
 # ============================================================
-# APP CONFIG
+# FLASK
 # ============================================================
 
 app = Flask(__name__)
@@ -44,92 +46,67 @@ logger = logging.getLogger(__name__)
 # GLOBALS
 # ============================================================
 
-MODEL = None
-CLASS_NAMES = None
+model = None
+class_names = None
 
 
 # ============================================================
-# CLASS NAMES
+# LOAD CLASS NAMES
 # ============================================================
 
 def load_class_names():
 
-    global CLASS_NAMES
+    global class_names
 
-    if CLASS_NAMES is not None:
-        return CLASS_NAMES
+    if class_names is None:
 
-    logger.info("Loading class names...")
+        with open(
+            CLASS_NAMES_PATH,
+            "r",
+            encoding="utf-8"
+        ) as f:
 
-    with open(
-        CLASS_NAMES_PATH,
-        "r",
-        encoding="utf-8"
-    ) as f:
+            class_names = json.load(f)
 
-        CLASS_NAMES = json.load(f)
-
-    if len(CLASS_NAMES) != 38:
-
-        raise ValueError(
-            "class_names.json must contain exactly 38 classes."
+        logger.info(
+            "Loaded %d class names",
+            len(class_names)
         )
 
-    logger.info(
-        "38 classes loaded."
-    )
-
-    return CLASS_NAMES
+    return class_names
 
 
 # ============================================================
-# MODEL
+# LOAD MODEL ONLY WHEN NEEDED
 # ============================================================
 
-def load_model_once():
+def load_model():
 
-    global MODEL
+    global model
 
-    if MODEL is not None:
-        return MODEL
+    if model is not None:
+        return model
 
     logger.info("Loading TensorFlow...")
 
     import tensorflow as tf
 
-    # --------------------------------------------------------
-    # CPU MODE
-    # --------------------------------------------------------
-
+    # CPU only
     try:
-
-        tf.config.set_visible_devices(
-            [],
-            "GPU"
-        )
-
+        tf.config.set_visible_devices([], "GPU")
     except Exception:
         pass
 
-    # --------------------------------------------------------
-    # LOAD MODEL
-    # --------------------------------------------------------
+    logger.info("Loading model...")
 
-    logger.info(
-        "Loading model: %s",
-        MODEL_PATH
-    )
-
-    MODEL = tf.keras.models.load_model(
+    model = tf.keras.models.load_model(
         MODEL_PATH,
         compile=False
     )
 
-    logger.info(
-        "Model loaded successfully."
-    )
+    logger.info("Model loaded successfully.")
 
-    return MODEL
+    return model
 
 
 # ============================================================
@@ -142,14 +119,11 @@ def get_plant_names():
 
     plants = []
 
-    for class_name in classes:
+    for item in classes:
 
-        plant_part = class_name.split(
+        plant = item.split(
             "___"
         )[0]
-
-        # Make display names
-        plant = plant_part
 
         plant = plant.replace(
             "_(maize)",
@@ -178,10 +152,10 @@ def get_plant_names():
 
 
 # ============================================================
-# SPLIT PREDICTION
+# CLASS NAME → PLANT + DISEASE
 # ============================================================
 
-def split_prediction(class_name):
+def split_class_name(class_name):
 
     parts = class_name.split(
         "___",
@@ -197,10 +171,6 @@ def split_prediction(class_name):
 
     plant = parts[0]
     disease = parts[1]
-
-    # --------------------------------------------------------
-    # PLANT NAME
-    # --------------------------------------------------------
 
     plant = plant.replace(
         "_(maize)",
@@ -221,10 +191,6 @@ def split_prediction(class_name):
         "_",
         " "
     )
-
-    # --------------------------------------------------------
-    # DISEASE NAME
-    # --------------------------------------------------------
 
     disease = disease.replace(
         "_",
@@ -247,22 +213,22 @@ CARE_INFO = {
         "Remove infected leaves and fallen debris. Improve air circulation and avoid prolonged leaf wetness.",
 
     "Apple___Black_rot":
-        "Remove affected leaves and fruit. Prune infected branches with clean tools and improve ventilation.",
+        "Remove affected leaves and fruit. Prune infected branches and improve ventilation.",
 
     "Apple___Cedar_apple_rust":
-        "Remove infected leaves where practical and improve airflow. Keep the growing area clean.",
+        "Remove infected leaves where practical and improve airflow.",
 
     "Apple___healthy":
         "The apple plant appears healthy. Maintain good sunlight, suitable watering and regular monitoring.",
 
     "Blueberry___healthy":
-        "Maintain suitable soil moisture, good drainage and adequate sunlight. Remove damaged leaves.",
+        "Maintain suitable soil moisture, good drainage and adequate sunlight.",
 
     "Cherry_(including_sour)___Powdery_mildew":
         "Improve air circulation and avoid excessive humidity. Remove heavily affected leaves.",
 
     "Cherry_(including_sour)___healthy":
-        "Maintain suitable moisture, sunlight and airflow. Regularly inspect new growth.",
+        "Maintain suitable moisture, sunlight and airflow.",
 
     "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot":
         "Remove heavily affected leaves where practical. Improve airflow and avoid prolonged leaf wetness.",
@@ -271,7 +237,7 @@ CARE_INFO = {
         "Monitor leaves for rust spots. Maintain good airflow and balanced plant nutrition.",
 
     "Corn_(maize)___Northern_Leaf_Blight":
-        "Remove heavily infected leaves and plant debris. Improve airflow and avoid prolonged leaf moisture.",
+        "Remove infected leaves and plant debris. Improve airflow and avoid prolonged leaf moisture.",
 
     "Corn_(maize)___healthy":
         "The corn plant appears healthy. Maintain suitable soil moisture, sunlight and balanced nutrition.",
@@ -280,22 +246,22 @@ CARE_INFO = {
         "Remove infected leaves and fruit. Improve airflow and avoid prolonged leaf wetness.",
 
     "Grape___Esca_(Black_Measles)":
-        "Remove severely affected material where appropriate. Maintain ventilation and monitor new growth.",
+        "Remove severely affected material and maintain good ventilation.",
 
     "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)":
-        "Remove infected leaves and improve airflow. Avoid prolonged moisture on foliage.",
+        "Remove infected leaves and improve airflow.",
 
     "Grape___healthy":
-        "Maintain good sunlight, airflow and consistent moisture. Regularly inspect leaves and fruit.",
+        "Maintain good sunlight, airflow and consistent moisture.",
 
     "Orange___Haunglongbing_(Citrus_greening)":
         "Monitor the plant closely and seek local agricultural guidance if symptoms persist.",
 
     "Peach___Bacterial_spot":
-        "Remove severely affected leaves where practical. Improve air circulation and avoid unnecessary leaf wetness.",
+        "Remove severely affected leaves and improve air circulation.",
 
     "Peach___healthy":
-        "Maintain adequate sunlight, suitable moisture and good airflow. Regularly inspect leaves.",
+        "Maintain adequate sunlight, suitable moisture and good airflow.",
 
     "Pepper,_bell___Bacterial_spot":
         "Remove severely affected leaves and improve ventilation. Avoid overhead watering.",
@@ -304,55 +270,55 @@ CARE_INFO = {
         "Maintain consistent watering, adequate sunlight and good airflow.",
 
     "Potato___Early_blight":
-        "Remove affected leaves and infected debris. Improve airflow and avoid prolonged leaf wetness.",
+        "Remove affected leaves and infected debris. Improve airflow.",
 
     "Potato___Late_blight":
         "Remove affected foliage promptly. Improve ventilation and avoid prolonged leaf wetness.",
 
     "Potato___healthy":
-        "The potato plant appears healthy. Maintain suitable soil moisture, good drainage and sunlight.",
+        "The potato plant appears healthy. Maintain suitable soil moisture and sunlight.",
 
     "Raspberry___healthy":
         "Maintain good airflow, adequate sunlight and consistent moisture.",
 
     "Soybean___healthy":
-        "Maintain balanced watering, sunlight and soil nutrition. Inspect leaves regularly.",
+        "Maintain balanced watering, sunlight and soil nutrition.",
 
     "Squash___Powdery_mildew":
         "Improve airflow and avoid excessive humidity. Remove heavily affected leaves.",
 
     "Strawberry___Leaf_scorch":
-        "Remove severely damaged leaves and improve airflow. Maintain consistent soil moisture.",
+        "Remove severely damaged leaves and maintain consistent soil moisture.",
 
     "Strawberry___healthy":
-        "Maintain suitable moisture, good sunlight and airflow. Remove damaged leaves.",
+        "Maintain suitable moisture, good sunlight and airflow.",
 
     "Tomato___Bacterial_spot":
-        "Remove severely affected leaves and avoid overhead watering. Improve air circulation.",
+        "Remove severely affected leaves and avoid overhead watering.",
 
     "Tomato___Early_blight":
-        "Remove affected lower leaves and infected debris. Improve airflow and avoid prolonged leaf wetness.",
+        "Remove affected lower leaves and infected debris. Improve airflow.",
 
     "Tomato___Late_blight":
-        "Remove affected foliage promptly. Improve airflow and avoid prolonged leaf wetness.",
+        "Remove affected foliage promptly and improve airflow.",
 
     "Tomato___Leaf_Mold":
-        "Improve ventilation and reduce excessive humidity. Remove heavily affected leaves.",
+        "Improve ventilation and reduce excessive humidity.",
 
     "Tomato___Septoria_leaf_spot":
-        "Remove infected lower leaves and debris. Improve airflow and avoid splashing water onto foliage.",
+        "Remove infected lower leaves and debris. Avoid splashing water onto foliage.",
 
     "Tomato___Spider_mites Two-spotted_spider_mite":
-        "Inspect the underside of leaves. Improve plant hydration and remove heavily affected leaves.",
+        "Inspect the underside of leaves and remove heavily affected leaves.",
 
     "Tomato___Target_Spot":
-        "Remove severely affected leaves and improve airflow. Avoid prolonged leaf wetness.",
+        "Remove severely affected leaves and improve airflow.",
 
     "Tomato___Tomato_Yellow_Leaf_Curl_Virus":
-        "Monitor the plant closely and control insect vectors such as whiteflies. Remove severely affected plants where appropriate.",
+        "Monitor the plant and control insect vectors such as whiteflies.",
 
     "Tomato___Tomato_mosaic_virus":
-        "Remove severely infected plants and disinfect tools after handling. Avoid spreading plant sap.",
+        "Remove severely infected plants and disinfect tools after handling.",
 
     "Tomato___healthy":
         "The tomato plant appears healthy. Maintain suitable watering, sunlight and ventilation."
@@ -360,75 +326,67 @@ CARE_INFO = {
 
 
 # ============================================================
-# IMAGE PREDICTION
+# IMAGE PREPROCESSING
+# IMPORTANT:
+# THIS MATCHES THE PREVIOUS WORKING VERSION
+# ============================================================
+
+def prepare_image(image_file):
+
+    image_file.seek(0)
+
+    image = Image.open(
+        image_file
+    )
+
+    # Fix phone photos that contain EXIF rotation
+    image = ImageOps.exif_transpose(
+        image
+    )
+
+    # Force RGB
+    image = image.convert(
+        "RGB"
+    )
+
+    # EXACT MODEL INPUT SIZE
+    image = image.resize(
+        (224, 224),
+        Image.Resampling.LANCZOS
+    )
+
+    image_array = np.asarray(
+        image,
+        dtype=np.float32
+    )
+
+    # MobileNetV2 preprocessing
+    image_array = (
+        image_array / 127.5
+    ) - 1.0
+
+    # Add batch dimension
+    image_array = np.expand_dims(
+        image_array,
+        axis=0
+    )
+
+    return image_array
+
+
+# ============================================================
+# PREDICT
 # ============================================================
 
 def predict_image(image_file):
 
-    import numpy as np
-    import tensorflow as tf
+    model = load_model()
 
-    model = load_model_once()
     classes = load_class_names()
 
-    # --------------------------------------------------------
-    # READ IMAGE
-    # --------------------------------------------------------
-
-    image_file.seek(0)
-
-    image_bytes = image_file.read()
-
-    if not image_bytes:
-
-        raise ValueError(
-            "Empty image."
-        )
-
-    # --------------------------------------------------------
-    # DECODE
-    # --------------------------------------------------------
-
-    image = tf.io.decode_image(
-        image_bytes,
-        channels=3,
-        expand_animations=False
+    image = prepare_image(
+        image_file
     )
-
-    # --------------------------------------------------------
-    # RESIZE
-    # --------------------------------------------------------
-
-    image = tf.image.resize(
-        image,
-        [224, 224]
-    )
-
-    # --------------------------------------------------------
-    # FLOAT32
-    # --------------------------------------------------------
-
-    image = tf.cast(
-        image,
-        tf.float32
-    )
-
-    # --------------------------------------------------------
-    # MOBILENETV2 PREPROCESSING
-    # --------------------------------------------------------
-
-    image = tf.keras.applications.mobilenet_v2.preprocess_input(
-        image
-    )
-
-    image = tf.expand_dims(
-        image,
-        0
-    )
-
-    # --------------------------------------------------------
-    # PREDICT
-    # --------------------------------------------------------
 
     predictions = model.predict(
         image,
@@ -437,87 +395,58 @@ def predict_image(image_file):
 
     predictions = np.asarray(
         predictions
-    ).reshape(-1)
-
-    if len(predictions) != len(classes):
-
-        raise ValueError(
-            "Model and class_names.json do not match."
-        )
-
-    # --------------------------------------------------------
-    # SOFTMAX SAFETY
-    # --------------------------------------------------------
-
-    total = float(
-        np.sum(predictions)
     )
 
-    if (
-        np.any(predictions < 0)
-        or not np.isclose(
-            total,
-            1.0,
-            atol=0.05
-        )
-    ):
-
-        predictions = tf.nn.softmax(
-            predictions
-        ).numpy()
+    predictions = predictions[0]
 
     # --------------------------------------------------------
-    # TOP PREDICTION
+    # IMPORTANT:
+    # DO NOT CHANGE CLASS ORDER
     # --------------------------------------------------------
 
-    best_index = int(
+    predicted_index = int(
         np.argmax(predictions)
     )
 
     confidence = float(
-        predictions[best_index] * 100
+        predictions[predicted_index] * 100
     )
 
     predicted_class = classes[
-        best_index
+        predicted_index
     ]
 
     # --------------------------------------------------------
-    # SECOND PREDICTION
+    # LOG TOP 5
     # --------------------------------------------------------
 
-    sorted_indices = np.argsort(
+    top_indices = np.argsort(
         predictions
-    )[::-1]
+    )[::-1][:5]
 
-    second_index = int(
-        sorted_indices[1]
+    logger.info(
+        "========== TOP PREDICTIONS =========="
     )
 
-    second_confidence = float(
-        predictions[second_index] * 100
+    for index in top_indices:
+
+        logger.info(
+            "%s -> %.2f%%",
+            classes[index],
+            float(predictions[index] * 100)
+        )
+
+    logger.info(
+        "======================================"
     )
 
-    margin = (
-        confidence -
-        second_confidence
-    )
-
-    return {
-        "class_name": predicted_class,
-        "confidence": round(
+    return (
+        predicted_class,
+        round(
             confidence,
             2
-        ),
-        "second_confidence": round(
-            second_confidence,
-            2
-        ),
-        "margin": round(
-            margin,
-            2
         )
-    }
+    )
 
 
 # ============================================================
@@ -557,15 +486,9 @@ def home():
 
     try:
 
-        # IMPORTANT:
-        # DO NOT LOAD TENSORFLOW HERE.
-        # This makes the homepage much faster.
-
-        plants = get_plant_names()
-
         return render_template(
             "index.html",
-            plant_names=plants,
+            plant_names=get_plant_names(),
             plant=None,
             disease=None,
             confidence=None,
@@ -591,12 +514,12 @@ def home():
             care=None,
             status=None,
             severity=None,
-            error="Website could not load correctly."
+            error="Unable to load the website."
         )
 
 
 # ============================================================
-# PREDICT
+# PREDICT ROUTE
 # ============================================================
 
 @app.route(
@@ -608,101 +531,10 @@ def predict():
     try:
 
         # ----------------------------------------------------
-        # IMAGE EXISTS?
+        # CHECK FILE
         # ----------------------------------------------------
 
         if "image" not in request.files:
-
-            return render_template(
-                "index.html",
-                plant_names=get_plant_names(),
-                error="Please select a plant image.",
-                plant=None,
-                disease=None,
-                confidence=None,
-                care=None,
-                status=None,
-                severity=None
-            )
-
-        image_file = request.files["image"]
-
-        if not image_file or image_file.filename == "":
-
-            return render_template(
-                "index.html",
-                plant_names=get_plant_names(),
-                error="Please select a plant image.",
-                plant=None,
-                disease=None,
-                confidence=None,
-                care=None,
-                status=None,
-                severity=None
-            )
-
-        # ----------------------------------------------------
-        # FILE TYPE
-        # ----------------------------------------------------
-
-        allowed_types = {
-            "image/jpeg",
-            "image/jpg",
-            "image/png",
-            "image/webp"
-        }
-
-        content_type = (
-            image_file.content_type or ""
-        ).lower()
-
-        if content_type not in allowed_types:
-
-            return render_template(
-                "index.html",
-                plant_names=get_plant_names(),
-                error=(
-                    "Please upload JPG, PNG or WEBP."
-                ),
-                plant=None,
-                disease=None,
-                confidence=None,
-                care=None,
-                status=None,
-                severity=None
-            )
-
-        # ----------------------------------------------------
-        # PREDICTION
-        # ----------------------------------------------------
-
-        result = predict_image(
-            image_file
-        )
-
-        class_name = result[
-            "class_name"
-        ]
-
-        confidence = result[
-            "confidence"
-        ]
-
-        margin = result[
-            "margin"
-        ]
-
-        # ----------------------------------------------------
-        # IMPORTANT:
-        # LOW CONFIDENCE IMAGE
-        # ----------------------------------------------------
-
-        if confidence < 45:
-
-            logger.info(
-                "Low confidence image: %.2f%%",
-                confidence
-            )
 
             return render_template(
                 "index.html",
@@ -713,21 +545,16 @@ def predict():
                 care=None,
                 status=None,
                 severity=None,
-                error=(
-                    "⚠ The AI could not confidently "
-                    "recognize this as a supported "
-                    "plant leaf. Please upload a clear "
-                    "leaf image."
-                )
+                error="Please select an image."
             )
 
-        # ----------------------------------------------------
-        # VERY CLOSE PREDICTIONS
-        # ----------------------------------------------------
+        image_file = request.files[
+            "image"
+        ]
 
         if (
-            confidence < 55
-            and margin < 5
+            image_file is None
+            or image_file.filename == ""
         ):
 
             return render_template(
@@ -739,38 +566,62 @@ def predict():
                 care=None,
                 status=None,
                 severity=None,
+                error="Please select an image."
+            )
+
+        # ----------------------------------------------------
+        # CHECK IMAGE
+        # ----------------------------------------------------
+
+        try:
+
+            # Verify image without changing original file
+            image_file.seek(0)
+
+            test_image = Image.open(
+                image_file
+            )
+
+            test_image.verify()
+
+            image_file.seek(0)
+
+        except Exception:
+
+            return render_template(
+                "index.html",
+                plant_names=get_plant_names(),
+                plant=None,
+                disease=None,
+                confidence=None,
+                care=None,
+                status=None,
+                severity=None,
                 error=(
-                    "⚠ The image is unclear. "
-                    "Please upload a clear plant leaf "
-                    "photo with good lighting."
+                    "The selected file is not a valid image."
                 )
             )
 
         # ----------------------------------------------------
-        # SPLIT RESULT
+        # PREDICTION
         # ----------------------------------------------------
 
-        plant, disease = split_prediction(
-            class_name
+        predicted_class, confidence = predict_image(
+            image_file
         )
 
         # ----------------------------------------------------
-        # CARE
+        # RESULT
         # ----------------------------------------------------
+
+        plant, disease = split_class_name(
+            predicted_class
+        )
 
         care = CARE_INFO.get(
-            class_name,
-            (
-                "Monitor the plant regularly, "
-                "remove severely affected material "
-                "and maintain suitable growing "
-                "conditions."
-            )
+            predicted_class,
+            "Maintain suitable sunlight, watering and airflow. Monitor the plant regularly."
         )
-
-        # ----------------------------------------------------
-        # STATUS
-        # ----------------------------------------------------
 
         if disease.lower() == "healthy":
 
@@ -780,26 +631,17 @@ def predict():
 
             status = "DISEASE DETECTED"
 
-        # ----------------------------------------------------
-        # SEVERITY
-        # ----------------------------------------------------
-
         severity = get_severity(
             disease,
             confidence
         )
 
         logger.info(
-            "Prediction: %s | Plant: %s | Disease: %s | Confidence: %.2f%%",
-            class_name,
+            "FINAL RESULT: %s | %s | %.2f%%",
             plant,
             disease,
             confidence
         )
-
-        # ----------------------------------------------------
-        # RETURN RESULT
-        # ----------------------------------------------------
 
         return render_template(
             "index.html",
@@ -816,8 +658,7 @@ def predict():
     except Exception as e:
 
         logger.exception(
-            "Prediction error: %s",
-            e
+            "Prediction error"
         )
 
         return render_template(
@@ -830,9 +671,8 @@ def predict():
             status=None,
             severity=None,
             error=(
-                "⚠ Could not analyze this image. "
-                "Please upload a clear JPG, PNG or WEBP "
-                "plant leaf image."
+                "Unable to analyze this image. "
+                "Please upload a clear plant leaf image."
             )
         )
 
@@ -849,18 +689,18 @@ def health():
         "model_exists": os.path.exists(
             MODEL_PATH
         ),
-        "classes_exists": os.path.exists(
+        "class_names_exists": os.path.exists(
             CLASS_NAMES_PATH
         )
     }
 
 
 # ============================================================
-# FILE TOO LARGE
+# 413 ERROR
 # ============================================================
 
 @app.errorhandler(413)
-def too_large(error):
+def file_too_large(error):
 
     return render_template(
         "index.html",
