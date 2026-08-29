@@ -1009,6 +1009,14 @@ footer{
         </h2>
     </div>
 
+<div style="
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+">
+
     <div class="nav-tabs">
 
         <button
@@ -1025,6 +1033,70 @@ footer{
         </button>
 
     </div>
+
+
+    <!-- USER PROFILE -->
+
+    <div style="
+        display:flex;
+        align-items:center;
+        gap:8px;
+        padding:7px 9px;
+        border-radius:12px;
+        background:rgba(255,255,255,.055);
+        border:1px solid rgba(255,255,255,.10);
+    ">
+
+        <div style="
+            width:30px;
+            height:30px;
+            border-radius:10px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background:linear-gradient(
+                135deg,
+                var(--emerald),
+                var(--cyan)
+            );
+            color:#00130B;
+            font-weight:bold;
+            font-size:13px;
+        ">
+            👤
+        </div>
+
+        <span style="
+            color:var(--white);
+            font-size:11px;
+            font-weight:bold;
+            max-width:100px;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
+        ">
+            {{ username }}
+        </span>
+
+        <a
+            href="{{ url_for('logout') }}"
+            style="
+                text-decoration:none;
+                color:#FF7890;
+                font-size:11px;
+                font-weight:bold;
+                padding:6px 8px;
+                border-radius:8px;
+                background:rgba(255,59,92,.08);
+                border:1px solid rgba(255,59,92,.18);
+            "
+        >
+            Logout
+        </a>
+
+    </div>
+
+</div>
 
 </nav>
 
@@ -1420,9 +1492,7 @@ footer{
 
                 <!--
                 IMPORTANT:
-                capture is NOT permanently added.
-                JavaScript adds capture="environment"
-                only when Open Phone Camera is clicked.
+                capture="environment" is the phone-camera fix.
                 -->
 
                 <form
@@ -1438,6 +1508,7 @@ footer{
                         id="imageInput"
                         name="image"
                         accept="image/jpeg,image/png,image/webp,image/*"
+                        capture="environment"
                         hidden
                     >
 
@@ -2017,8 +2088,6 @@ function openScanner(){
 
 /* =====================================================
    CHOOSE IMAGE
-   UPDATED:
-   Opens normal gallery/file picker.
 ===================================================== */
 
 function chooseImage(){
@@ -2028,12 +2097,6 @@ function chooseImage(){
 
     if(input){
 
-        /*
-         * Remove camera capture so this button
-         * opens the normal gallery/file picker.
-         */
-        input.removeAttribute("capture");
-
         input.click();
 
     }
@@ -2042,8 +2105,7 @@ function chooseImage(){
 
 /* =====================================================
    PHONE CAMERA
-   UPDATED:
-   Adds capture ONLY when this button is clicked.
+   IMPORTANT FIX
 ===================================================== */
 
 function openPhoneCamera(){
@@ -2066,9 +2128,14 @@ function openPhoneCamera(){
     }
 
     /*
-     * Tell the mobile browser to prefer
-     * the rear/environment camera.
+     * capture="environment" tells the mobile browser
+     * to prefer the rear camera.
+     *
+     * This does NOT require getUserMedia().
+     * Therefore it works much better with a Flask
+     * website running on HTTP.
      */
+
     input.setAttribute(
         "capture",
         "environment"
