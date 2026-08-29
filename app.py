@@ -12,11 +12,13 @@ import json
 import sqlite3
 
 # ============================================================
-# TENSORFLOW RESOURCE SETTINGS
+# TENSORFLOW CPU / RESOURCE SETTINGS
 # IMPORTANT:
 # These MUST be set BEFORE importing TensorFlow.
 # ============================================================
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
 os.environ["TF_NUM_INTEROP_THREADS"] = "1"
@@ -33,6 +35,17 @@ from werkzeug.security import (
 
 
 # ============================================================
+# TENSORFLOW THREAD SETTINGS
+# ============================================================
+
+try:
+    tf.config.threading.set_intra_op_parallelism_threads(1)
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+except Exception as e:
+    print("TensorFlow thread configuration:", e)
+
+
+# ============================================================
 # FLASK APP
 # ============================================================
 
@@ -42,11 +55,6 @@ app = Flask(__name__)
 # ============================================================
 # SECRET KEY
 # ============================================================
-
-# For production/Render:
-# Create an environment variable named FLASK_SECRET_KEY.
-#
-# Local fallback is provided so the application works in Spyder.
 
 app.secret_key = os.environ.get(
     "FLASK_SECRET_KEY",
@@ -86,11 +94,6 @@ DATABASE_PATH = os.path.join(
     "plantai_users.db"
 )
 
-# If DATABASE_URL exists, PostgreSQL will be used.
-#
-# This is recommended for Render because PostgreSQL
-# provides persistent database storage.
-
 DATABASE_URL = os.environ.get(
     "DATABASE_URL"
 )
@@ -112,9 +115,6 @@ def get_db_connection():
 
         database_url = DATABASE_URL
 
-        # Some services provide postgres://
-        # while psycopg2 expects postgresql://
-
         if database_url.startswith("postgres://"):
 
             database_url = database_url.replace(
@@ -135,7 +135,8 @@ def get_db_connection():
     # --------------------------------------------------------
 
     connection = sqlite3.connect(
-        DATABASE_PATH
+        DATABASE_PATH,
+        timeout=30
     )
 
     connection.row_factory = sqlite3.Row
@@ -153,12 +154,7 @@ def init_database():
 
     cursor = connection.cursor()
 
-
     if DATABASE_URL:
-
-        # ----------------------------------------------------
-        # POSTGRESQL
-        # ----------------------------------------------------
 
         cursor.execute(
             """
@@ -178,12 +174,7 @@ def init_database():
             """
         )
 
-
     else:
-
-        # ----------------------------------------------------
-        # SQLITE
-        # ----------------------------------------------------
 
         cursor.execute(
             """
@@ -202,7 +193,6 @@ def init_database():
             )
             """
         )
-
 
     connection.commit()
 
@@ -224,34 +214,19 @@ try:
 
     if DATABASE_URL:
 
-        print(
-            "Database: PostgreSQL"
-        )
+        print("Database: PostgreSQL")
 
     else:
 
-        print(
-            "Database: SQLite"
-        )
+        print("Database: SQLite")
+        print("Database file:", DATABASE_PATH)
 
-        print(
-            "Database file:",
-            DATABASE_PATH
-        )
-
-    print(
-        "User database ready."
-    )
+    print("User database ready.")
 
 except Exception as e:
 
-    print(
-        "DATABASE INITIALIZATION ERROR:"
-    )
-
-    print(
-        str(e)
-    )
+    print("DATABASE INITIALIZATION ERROR:")
+    print(str(e))
 
     raise
 
@@ -275,7 +250,6 @@ print("=" * 60)
 print("Loading Plant Disease AI model...")
 print("=" * 60)
 
-
 if not os.path.exists(MODEL_PATH):
 
     raise FileNotFoundError(
@@ -284,16 +258,22 @@ if not os.path.exists(MODEL_PATH):
     )
 
 
-model = tf.keras.models.load_model(
-    MODEL_PATH,
-    compile=False
-)
+try:
+
+    model = tf.keras.models.load_model(
+        MODEL_PATH,
+        compile=False
+    )
+
+except Exception as e:
+
+    print("MODEL LOADING ERROR:")
+    print(str(e))
+
+    raise
 
 
-print(
-    "Model loaded successfully."
-)
-
+print("Model loaded successfully.")
 
 print(
     "Model input shape:",
@@ -338,24 +318,17 @@ try:
         model.output_shape[-1]
     )
 
-
     print(
         "Model output classes:",
         model_output_classes
     )
-
 
     print(
         "JSON classes:",
         len(class_names)
     )
 
-
-    if (
-        model_output_classes
-        !=
-        len(class_names)
-    ):
+    if model_output_classes != len(class_names):
 
         print()
         print("WARNING!")
@@ -368,7 +341,6 @@ try:
             "Make sure class_names.json "
             "belongs to this model."
         )
-
 
 except Exception as e:
 
@@ -439,7 +411,6 @@ plant_names = sorted(
 print()
 print("Plants used:")
 
-
 for plant in plant_names:
 
     print(
@@ -496,7 +467,6 @@ disease_info = {
         )
     },
 
-
     # ========================================================
     # BLUEBERRY
     # ========================================================
@@ -510,7 +480,6 @@ disease_info = {
             "sunlight and nutrition."
         )
     },
-
 
     # ========================================================
     # CHERRY
@@ -535,7 +504,6 @@ disease_info = {
             "and plant monitoring."
         )
     },
-
 
     # ========================================================
     # CORN
@@ -583,7 +551,6 @@ disease_info = {
         )
     },
 
-
     # ========================================================
     # GRAPE
     # ========================================================
@@ -628,7 +595,6 @@ disease_info = {
         )
     },
 
-
     # ========================================================
     # ORANGE
     # ========================================================
@@ -645,7 +611,6 @@ disease_info = {
             "if symptoms persist."
         )
     },
-
 
     # ========================================================
     # PEACH
@@ -671,7 +636,6 @@ disease_info = {
         )
     },
 
-
     # ========================================================
     # PEPPER
     # ========================================================
@@ -695,7 +659,6 @@ disease_info = {
             "and nutrition."
         )
     },
-
 
     # ========================================================
     # POTATO
@@ -732,7 +695,6 @@ disease_info = {
         )
     },
 
-
     # ========================================================
     # RASPBERRY
     # ========================================================
@@ -746,7 +708,6 @@ disease_info = {
             "and soil moisture."
         )
     },
-
 
     # ========================================================
     # SOYBEAN
@@ -762,7 +723,6 @@ disease_info = {
         )
     },
 
-
     # ========================================================
     # SQUASH
     # ========================================================
@@ -776,7 +736,6 @@ disease_info = {
             "and prolonged leaf wetness."
         )
     },
-
 
     # ========================================================
     # STRAWBERRY
@@ -801,7 +760,6 @@ disease_info = {
             "and good airflow."
         )
     },
-
 
     # ========================================================
     # TOMATO
@@ -917,13 +875,11 @@ def prepare_image(image):
 
     image = image.convert("RGB")
 
-
     image = ImageOps.contain(
         image,
         IMAGE_SIZE,
         method=Image.Resampling.LANCZOS
     )
-
 
     background = Image.new(
         "RGB",
@@ -931,36 +887,30 @@ def prepare_image(image):
         (255, 255, 255)
     )
 
-
     x = (
         IMAGE_SIZE[0] -
         image.width
     ) // 2
-
 
     y = (
         IMAGE_SIZE[1] -
         image.height
     ) // 2
 
-
     background.paste(
         image,
         (x, y)
     )
-
 
     image_array = np.asarray(
         background,
         dtype=np.float32
     )
 
-
     image_array = np.expand_dims(
         image_array,
         axis=0
     )
-
 
     return image_array
 
@@ -973,23 +923,19 @@ def looks_like_plant_image(image):
 
     image = image.convert("RGB")
 
-
     small = image.resize(
         (100, 100),
         Image.Resampling.LANCZOS
     )
-
 
     arr = np.asarray(
         small,
         dtype=np.float32
     )
 
-
     r = arr[:, :, 0]
     g = arr[:, :, 1]
     b = arr[:, :, 2]
-
 
     # --------------------------------------------------------
     # GREEN PIXELS
@@ -1009,11 +955,9 @@ def looks_like_plant_image(image):
 
     )
 
-
     green_ratio = np.mean(
         green_pixels
     )
-
 
     # --------------------------------------------------------
     # BROWN / DRY LEAF PIXELS
@@ -1037,16 +981,13 @@ def looks_like_plant_image(image):
 
     )
 
-
     brown_ratio = np.mean(
         brown_pixels
     )
 
-
     brightness = np.mean(
         (r + g + b) / 3
     )
-
 
     print(
         "Green pixel ratio:",
@@ -1059,7 +1000,6 @@ def looks_like_plant_image(image):
         "%"
     )
 
-
     print(
         "Brown pixel ratio:",
         round(
@@ -1071,7 +1011,6 @@ def looks_like_plant_image(image):
         "%"
     )
 
-
     print(
         "Average brightness:",
         round(
@@ -1080,16 +1019,13 @@ def looks_like_plant_image(image):
         )
     )
 
-
     if green_ratio >= 0.06:
 
         return True
 
-
     if brown_ratio >= 0.08:
 
         return True
-
 
     return False
 
@@ -1118,20 +1054,11 @@ def show_error(message):
 )
 def register():
 
-    # --------------------------------------------------------
-    # ALREADY LOGGED IN
-    # --------------------------------------------------------
-
     if session.get("logged_in"):
 
         return redirect(
             url_for("home")
         )
-
-
-    # --------------------------------------------------------
-    # REGISTER FORM
-    # --------------------------------------------------------
 
     if request.method == "POST":
 
@@ -1140,18 +1067,15 @@ def register():
             ""
         ).strip()
 
-
         password = request.form.get(
             "password",
             ""
         )
 
-
         confirm_password = request.form.get(
             "confirm_password",
             ""
         )
-
 
         # ----------------------------------------------------
         # USERNAME VALIDATION
@@ -1166,7 +1090,6 @@ def register():
                 username=username
             )
 
-
         if len(username) < 3:
 
             return render_template(
@@ -1176,7 +1099,6 @@ def register():
                 username=username
             )
 
-
         if len(username) > 50:
 
             return render_template(
@@ -1185,11 +1107,6 @@ def register():
                 error="Username must be 50 characters or less.",
                 username=username
             )
-
-
-        # ----------------------------------------------------
-        # USERNAME CHARACTER CHECK
-        # ----------------------------------------------------
 
         if not all(
             char.isalnum() or char in "_-"
@@ -1206,7 +1123,6 @@ def register():
                 username=username
             )
 
-
         # ----------------------------------------------------
         # PASSWORD VALIDATION
         # ----------------------------------------------------
@@ -1220,7 +1136,6 @@ def register():
                 username=username
             )
 
-
         if password != confirm_password:
 
             return render_template(
@@ -1230,25 +1145,17 @@ def register():
                 username=username
             )
 
-
-        # ----------------------------------------------------
-        # HASH PASSWORD
-        # ----------------------------------------------------
-
         password_hash = generate_password_hash(
             password
         )
 
-
         connection = None
-
 
         try:
 
             connection = get_db_connection()
 
             cursor = connection.cursor()
-
 
             # ------------------------------------------------
             # CHECK USERNAME
@@ -1276,15 +1183,12 @@ def register():
                     (username,)
                 )
 
-
             existing_user = cursor.fetchone()
-
 
             if existing_user:
 
                 cursor.close()
                 connection.close()
-
 
                 return render_template(
                     "login.html",
@@ -1295,7 +1199,6 @@ def register():
                     ),
                     username=username
                 )
-
 
             # ------------------------------------------------
             # INSERT USER
@@ -1335,12 +1238,10 @@ def register():
                     )
                 )
 
-
             connection.commit()
 
             cursor.close()
             connection.close()
-
 
             print()
             print("=" * 60)
@@ -1351,7 +1252,6 @@ def register():
             )
             print("=" * 60)
 
-
             return render_template(
                 "login.html",
                 mode="login",
@@ -1360,7 +1260,6 @@ def register():
                     "You can now log in."
                 )
             )
-
 
         except Exception as e:
 
@@ -1373,15 +1272,16 @@ def register():
                 str(e)
             )
 
-
             if connection:
 
                 try:
+
                     connection.rollback()
                     connection.close()
-                except:
-                    pass
 
+                except:
+
+                    pass
 
             return render_template(
                 "login.html",
@@ -1392,11 +1292,6 @@ def register():
                 ),
                 username=username
             )
-
-
-    # --------------------------------------------------------
-    # SHOW REGISTER PAGE
-    # --------------------------------------------------------
 
     return render_template(
         "login.html",
@@ -1414,20 +1309,11 @@ def register():
 )
 def login():
 
-    # --------------------------------------------------------
-    # ALREADY LOGGED IN
-    # --------------------------------------------------------
-
     if session.get("logged_in"):
 
         return redirect(
             url_for("home")
         )
-
-
-    # --------------------------------------------------------
-    # LOGIN FORM
-    # --------------------------------------------------------
 
     if request.method == "POST":
 
@@ -1436,12 +1322,10 @@ def login():
             ""
         ).strip()
 
-
         password = request.form.get(
             "password",
             ""
         )
-
 
         if not username or not password:
 
@@ -1452,16 +1336,13 @@ def login():
                 username=username
             )
 
-
         connection = None
-
 
         try:
 
             connection = get_db_connection()
 
             cursor = connection.cursor()
-
 
             # ------------------------------------------------
             # FIND USER
@@ -1495,13 +1376,10 @@ def login():
                     (username,)
                 )
 
-
             user = cursor.fetchone()
-
 
             cursor.close()
             connection.close()
-
 
             # ------------------------------------------------
             # CHECK PASSWORD
@@ -1519,28 +1397,18 @@ def login():
                     stored_username = user["username"]
                     stored_password_hash = user["password_hash"]
 
-
                 if check_password_hash(
                     stored_password_hash,
                     password
                 ):
 
-                    # ----------------------------------------
-                    # LOGIN SUCCESS
-                    # ----------------------------------------
-
                     session.clear()
 
                     session["logged_in"] = True
 
-                    session["user_id"] = (
-                        user[0]
-                    )
+                    session["user_id"] = user[0]
 
-                    session["username"] = (
-                        stored_username
-                    )
-
+                    session["username"] = stored_username
 
                     print()
                     print("=" * 60)
@@ -1551,21 +1419,14 @@ def login():
                     )
                     print("=" * 60)
 
-
                     return redirect(
                         url_for("home")
                     )
-
-
-            # ------------------------------------------------
-            # LOGIN FAILED
-            # ------------------------------------------------
 
             print()
             print(
                 "LOGIN FAILED"
             )
-
 
             return render_template(
                 "login.html",
@@ -1573,7 +1434,6 @@ def login():
                 error="Invalid username or password.",
                 username=username
             )
-
 
         except Exception as e:
 
@@ -1586,14 +1446,15 @@ def login():
                 str(e)
             )
 
-
             if connection:
 
                 try:
-                    connection.close()
-                except:
-                    pass
 
+                    connection.close()
+
+                except:
+
+                    pass
 
             return render_template(
                 "login.html",
@@ -1604,11 +1465,6 @@ def login():
                 ),
                 username=username
             )
-
-
-    # --------------------------------------------------------
-    # SHOW LOGIN PAGE
-    # --------------------------------------------------------
 
     return render_template(
         "login.html",
@@ -1628,16 +1484,13 @@ def logout():
         "Unknown"
     )
 
-
     print()
     print(
         "USER LOGGED OUT:",
         username
     )
 
-
     session.clear()
-
 
     return redirect(
         url_for("login")
@@ -1651,20 +1504,11 @@ def logout():
 @app.route("/")
 def home():
 
-    # --------------------------------------------------------
-    # LOGIN PROTECTION
-    # --------------------------------------------------------
-
     if not session.get("logged_in"):
 
         return redirect(
             url_for("login")
         )
-
-
-    # --------------------------------------------------------
-    # PLANTAI WEBSITE
-    # --------------------------------------------------------
 
     return render_template(
         "index.html",
@@ -1683,22 +1527,16 @@ def home():
 )
 def predict():
 
-    # --------------------------------------------------------
-    # LOGIN PROTECTION
-    # --------------------------------------------------------
-
     if not session.get("logged_in"):
 
         return redirect(
             url_for("login")
         )
 
-
     print()
     print("=" * 60)
     print("NEW IMAGE RECEIVED")
     print("=" * 60)
-
 
     # ========================================================
     # CHECK IMAGE FIELD
@@ -1710,16 +1548,13 @@ def predict():
             "Please select a plant image."
         )
 
-
     file = request.files["image"]
-
 
     if file.filename == "":
 
         return show_error(
             "Please select a plant image."
         )
-
 
     try:
 
@@ -1731,37 +1566,29 @@ def predict():
             file.stream
         ).convert("RGB")
 
-
         print(
             "Original image size:",
             original_image.size
         )
-
 
         # ====================================================
         # IMAGE SIZE CHECK
         # ====================================================
 
         if (
-
             original_image.width < 80
-
             or
-
             original_image.height < 80
-
         ):
 
             print(
                 "IMAGE REJECTED - IMAGE TOO SMALL"
             )
 
-
             return show_error(
                 "Image could not be reliably identified. "
                 "Please upload a clear leaf image."
             )
-
 
         # ====================================================
         # PLANT IMAGE CHECK
@@ -1771,7 +1598,6 @@ def predict():
             original_image
         )
 
-
         if not plant_like:
 
             print(
@@ -1779,12 +1605,10 @@ def predict():
                 "DOES NOT LOOK LIKE A PLANT"
             )
 
-
             return show_error(
                 "Image could not be reliably identified. "
                 "Please upload a clear leaf image."
             )
-
 
         # ====================================================
         # PREPARE IMAGE
@@ -1794,12 +1618,10 @@ def predict():
             original_image
         )
 
-
         print(
             "Model input shape:",
             image_array.shape
         )
-
 
         # ====================================================
         # MODEL PREDICTION
@@ -1810,9 +1632,10 @@ def predict():
             verbose=0
         )
 
-
-        probabilities = predictions[0]
-
+        probabilities = np.asarray(
+            predictions[0],
+            dtype=np.float32
+        )
 
         # ====================================================
         # SAFETY CHECK
@@ -1829,12 +1652,10 @@ def predict():
                 "do not match."
             )
 
-
             return show_error(
                 "The AI model configuration is incorrect. "
                 "Please check the model and class_names.json."
             )
-
 
         # ====================================================
         # TOP 5 PREDICTIONS
@@ -1844,7 +1665,6 @@ def predict():
             probabilities
         )[-5:][::-1]
 
-
         print()
         print(
             "TOP 5 AI PREDICTIONS"
@@ -1853,24 +1673,16 @@ def predict():
             "-" * 60
         )
 
-
         for rank, index in enumerate(
             top_indices,
             start=1
         ):
 
             print(
-
                 rank,
-
                 ".",
-
-                class_names[
-                    int(index)
-                ],
-
+                class_names[int(index)],
                 "->",
-
                 round(
                     float(
                         probabilities[index]
@@ -1878,16 +1690,12 @@ def predict():
                     ),
                     2
                 ),
-
                 "%"
-
             )
-
 
         print(
             "-" * 60
         )
-
 
         # ====================================================
         # FINAL PREDICTION
@@ -1899,18 +1707,15 @@ def predict():
             )
         )
 
-
         predicted_class = class_names[
             predicted_index
         ]
-
 
         confidence = float(
             probabilities[
                 predicted_index
             ] * 100
         )
-
 
         # ====================================================
         # TOP-2 MARGIN
@@ -1920,32 +1725,24 @@ def predict():
             probabilities
         )
 
-
         top_probability = float(
             sorted_probabilities[-1]
         )
-
 
         second_probability = float(
             sorted_probabilities[-2]
         )
 
-
         margin = (
-
             top_probability -
-
             second_probability
-
         ) * 100
-
 
         print()
         print(
             "FINAL PREDICTION:",
             predicted_class
         )
-
 
         print(
             "CONFIDENCE:",
@@ -1956,7 +1753,6 @@ def predict():
             "%"
         )
 
-
         print(
             "TOP-2 MARGIN:",
             round(
@@ -1965,7 +1761,6 @@ def predict():
             ),
             "%"
         )
-
 
         # ====================================================
         # CONFIDENCE CHECK
@@ -1977,12 +1772,10 @@ def predict():
                 "IMAGE REJECTED - LOW CONFIDENCE"
             )
 
-
             return show_error(
                 "Image could not be reliably identified. "
                 "Please upload a clear leaf image."
             )
-
 
         # ====================================================
         # MARGIN CHECK
@@ -1995,12 +1788,10 @@ def predict():
                 "UNCERTAIN PREDICTION"
             )
 
-
             return show_error(
                 "The AI is uncertain about this image. "
                 "Please upload a clear leaf image."
             )
-
 
         # ====================================================
         # DISEASE INFORMATION
@@ -2010,34 +1801,26 @@ def predict():
             predicted_class
         )
 
-
         if info is None:
 
             plant = get_plant_name(
                 predicted_class
             )
 
-
             disease = (
-
                 predicted_class
-
                 .split("___")[-1]
-
                 .replace(
                     "_",
                     " "
                 )
-
             )
-
 
             care = (
                 "Monitor the plant regularly "
                 "and consult a local agricultural "
                 "expert if symptoms continue."
             )
-
 
         else:
 
@@ -2046,7 +1829,6 @@ def predict():
             disease = info["disease"]
 
             care = info["care"]
-
 
         # ====================================================
         # SEVERITY
@@ -2058,20 +1840,17 @@ def predict():
 
             status = "HEALTHY"
 
-
         elif confidence >= 85:
 
             severity = "High"
 
             status = "DISEASE DETECTED"
 
-
         else:
 
             severity = "Moderate"
 
             status = "POSSIBLE DISEASE"
-
 
         # ====================================================
         # SUCCESS LOG
@@ -2082,24 +1861,20 @@ def predict():
             "IMAGE ACCEPTED"
         )
 
-
         print(
             "Plant:",
             plant
         )
-
 
         print(
             "Disease:",
             disease
         )
 
-
         print(
             "Severity:",
             severity
         )
-
 
         print(
             "User:",
@@ -2109,11 +1884,9 @@ def predict():
             )
         )
 
-
         print(
             "=" * 60
         )
-
 
         # ====================================================
         # SHOW RESULT
@@ -2146,7 +1919,6 @@ def predict():
 
         )
 
-
     # ========================================================
     # ERROR HANDLING
     # ========================================================
@@ -2154,28 +1926,17 @@ def predict():
     except Exception as e:
 
         print()
-        print(
-            "=" * 60
-        )
-
-        print(
-            "PREDICTION ERROR"
-        )
-
-        print(
-            "=" * 60
-        )
-
+        print("=" * 60)
+        print("PREDICTION ERROR")
+        print("=" * 60)
 
         print(
             str(e)
         )
 
-
         print(
             "=" * 60
         )
-
 
         return show_error(
             "Unable to analyze this image. "
@@ -2187,36 +1948,24 @@ def predict():
 # HEALTH CHECK
 # IMPORTANT:
 # DO NOT PROTECT THIS ROUTE WITH LOGIN.
-# Render can use this endpoint to check the application.
+# Render uses this endpoint to check the application.
 # ============================================================
 
 @app.route("/health")
 def health():
 
     return {
-
         "status": "online",
-
-        "model":
-            "Plant Disease MobileNetV2",
-
-        "classes":
-            len(class_names),
-
-        "plants":
-            len(plant_names),
-
-        "database":
+        "model": "Plant Disease MobileNetV2",
+        "classes": len(class_names),
+        "plants": len(plant_names),
+        "database": (
             "PostgreSQL"
             if DATABASE_URL
-            else "SQLite",
-
-        "confidence_threshold":
-            CONFIDENCE_THRESHOLD,
-
-        "margin_threshold":
-            MARGIN_THRESHOLD
-
+            else "SQLite"
+        ),
+        "confidence_threshold": CONFIDENCE_THRESHOLD,
+        "margin_threshold": MARGIN_THRESHOLD
     }
 
 
@@ -2233,24 +1982,20 @@ if __name__ == "__main__":
     )
     print("=" * 60)
 
-
     print(
         "Model:",
         MODEL_PATH
     )
-
 
     print(
         "Classes:",
         len(class_names)
     )
 
-
     print(
         "Plants:",
         len(plant_names)
     )
-
 
     print(
         "Database:",
@@ -2259,13 +2004,11 @@ if __name__ == "__main__":
         else "SQLite"
     )
 
-
     print(
         "Confidence threshold:",
         CONFIDENCE_THRESHOLD,
         "%"
     )
-
 
     print(
         "Top-2 margin threshold:",
@@ -2273,46 +2016,35 @@ if __name__ == "__main__":
         "%"
     )
 
-
     print()
     print(
         "LOGIN:"
     )
 
-
     print(
         "http://127.0.0.1:5000/login"
     )
-
 
     print()
     print(
         "REGISTER:"
     )
 
-
     print(
         "http://127.0.0.1:5000/register"
     )
-
 
     print()
     print(
         "SERVER STARTING..."
     )
 
-
     print("=" * 60)
 
-
     app.run(
-
         host="0.0.0.0",
-
         port=5000,
-
         debug=False,
-
-        use_reloader=False
-
+        use_reloader=False,
+        threaded=True
     )
