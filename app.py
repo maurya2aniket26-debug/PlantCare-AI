@@ -26,7 +26,6 @@ import tensorflow as tf
 
 app = Flask(__name__)
 
-# Limit uploaded image size
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 
 
@@ -86,8 +85,7 @@ print("Checking class_names.json...")
 
 if not os.path.isfile(CLASS_NAMES_PATH):
     raise FileNotFoundError(
-        "class_names.json not found: "
-        + CLASS_NAMES_PATH
+        "class_names.json not found: " + CLASS_NAMES_PATH
     )
 
 with open(
@@ -96,7 +94,6 @@ with open(
     encoding="utf-8"
 ) as f:
     class_names = json.load(f)
-
 
 if not isinstance(class_names, list):
     raise ValueError(
@@ -108,10 +105,7 @@ class_names = [
     for name in class_names
 ]
 
-print(
-    "Classes loaded:",
-    len(class_names)
-)
+print("Classes loaded:", len(class_names))
 
 
 # ============================================================
@@ -123,8 +117,7 @@ print("Checking model...")
 
 if not os.path.isfile(MODEL_PATH):
     raise FileNotFoundError(
-        "Model not found: "
-        + MODEL_PATH
+        "Model not found: " + MODEL_PATH
     )
 
 print("Model found:")
@@ -141,15 +134,8 @@ model = tf.keras.models.load_model(
 
 print("AI model loaded successfully.")
 
-print(
-    "Model input shape:",
-    model.input_shape
-)
-
-print(
-    "Model output shape:",
-    model.output_shape
-)
+print("Model input shape:", model.input_shape)
+print("Model output shape:", model.output_shape)
 
 
 # ============================================================
@@ -163,11 +149,8 @@ MODEL_CLASS_COUNT = int(
 JSON_CLASS_COUNT = len(class_names)
 
 print()
-print("Model classes:")
-print(MODEL_CLASS_COUNT)
-
-print("JSON classes:")
-print(JSON_CLASS_COUNT)
+print("Model classes:", MODEL_CLASS_COUNT)
+print("JSON classes:", JSON_CLASS_COUNT)
 
 if MODEL_CLASS_COUNT != JSON_CLASS_COUNT:
     raise ValueError(
@@ -665,18 +648,13 @@ def prepare_image(image):
 
 
 # ============================================================
-# NEW:
 # BASIC PLANT IMAGE CHECK
-#
-# This is ONLY used to reject obvious non-plant images.
-# It does NOT change model loading or prediction.
 # ============================================================
 
 def looks_like_plant_image(image):
 
     image = image.convert("RGB")
 
-    # Resize only for this simple check
     small = image.resize(
         (100, 100),
         Image.Resampling.LANCZOS
@@ -706,7 +684,7 @@ def looks_like_plant_image(image):
     )
 
     # --------------------------------------------------------
-    # Brown / yellow / dry leaf pixels
+    # Brown / yellow pixels
     # --------------------------------------------------------
 
     brown_pixels = (
@@ -721,7 +699,7 @@ def looks_like_plant_image(image):
     )
 
     # --------------------------------------------------------
-    # Dark natural leaf pixels
+    # Dark green pixels
     # --------------------------------------------------------
 
     dark_green_pixels = (
@@ -755,10 +733,6 @@ def looks_like_plant_image(image):
 
     # --------------------------------------------------------
     # Plant decision
-    #
-    # IMPORTANT:
-    # This rejects obvious car / building / people /
-    # random photos while allowing green or dry leaves.
     # --------------------------------------------------------
 
     if green_ratio >= 0.06:
@@ -858,7 +832,6 @@ def predict():
             image.size
         )
 
-
         # ----------------------------------------------------
         # BASIC SIZE CHECK
         # ----------------------------------------------------
@@ -874,16 +847,14 @@ def predict():
                 "plant leaf image."
             )
 
-
-        # ====================================================
-        # NEW:
-        # REJECT OBVIOUS NON-PLANT IMAGES
-        #
-        # This happens BEFORE AI prediction.
-        # ====================================================
+        # ----------------------------------------------------
+        # BASIC PLANT CHECK
+        # ----------------------------------------------------
 
         print()
-        print("Checking whether image looks like a plant...")
+        print(
+            "Checking whether image looks like a plant..."
+        )
 
         if not looks_like_plant_image(image):
 
@@ -900,7 +871,6 @@ def predict():
             "Image passed basic plant check."
         )
 
-
         # ----------------------------------------------------
         # PREPARE IMAGE
         # ----------------------------------------------------
@@ -914,20 +884,22 @@ def predict():
             image_array.shape
         )
 
-
         # ----------------------------------------------------
         # PREDICTION
         # ----------------------------------------------------
 
-        print("Running AI prediction...")
+        print(
+            "Running AI prediction..."
+        )
 
         predictions = model(
             image_array,
             training=False
         ).numpy()[0]
 
-        print("Prediction completed.")
-
+        print(
+            "Prediction completed."
+        )
 
         # ----------------------------------------------------
         # CHECK OUTPUT
@@ -939,7 +911,6 @@ def predict():
                 "Model configuration error. "
                 "Please check class_names.json."
             )
-
 
         # ----------------------------------------------------
         # SOFTMAX SAFETY
@@ -961,7 +932,6 @@ def predict():
                 predictions
             ).numpy()
 
-
         # ----------------------------------------------------
         # TOP PREDICTION
         # ----------------------------------------------------
@@ -977,7 +947,6 @@ def predict():
         confidence = float(
             predictions[predicted_index] * 100
         )
-
 
         # ----------------------------------------------------
         # SECOND PREDICTION
@@ -1000,7 +969,6 @@ def predict():
             second_probability
         ) * 100
 
-
         # ----------------------------------------------------
         # LOG RESULT
         # ----------------------------------------------------
@@ -1021,7 +989,6 @@ def predict():
             "%"
         )
 
-
         # ----------------------------------------------------
         # CONFIDENCE CHECK
         # ----------------------------------------------------
@@ -1038,7 +1005,6 @@ def predict():
                 "a clear close-up photo of a plant leaf."
             )
 
-
         # ----------------------------------------------------
         # MARGIN CHECK
         # ----------------------------------------------------
@@ -1054,7 +1020,6 @@ def predict():
                 "Please upload a clearer plant leaf image."
             )
 
-
         # ----------------------------------------------------
         # DISEASE INFORMATION
         # ----------------------------------------------------
@@ -1062,7 +1027,6 @@ def predict():
         info = disease_info.get(
             predicted_class
         )
-
 
         if info is not None:
 
@@ -1092,7 +1056,6 @@ def predict():
                 "expert if symptoms continue."
             )
 
-
         # ----------------------------------------------------
         # STATUS
         # ----------------------------------------------------
@@ -1115,7 +1078,6 @@ def predict():
 
             status = "POSSIBLE DISEASE"
 
-
         # ----------------------------------------------------
         # CLEAN MEMORY
         # ----------------------------------------------------
@@ -1124,7 +1086,6 @@ def predict():
         del predictions
 
         gc.collect()
-
 
         # ----------------------------------------------------
         # FINAL RESULT
@@ -1136,7 +1097,6 @@ def predict():
         print("=" * 60)
 
         print("Plant:", plant)
-
         print("Disease:", disease)
 
         print(
@@ -1148,7 +1108,6 @@ def predict():
         print("Severity:", severity)
 
         print("=" * 60)
-
 
         return render_template(
             "index.html",
@@ -1170,7 +1129,6 @@ def predict():
 
             plant_names=plant_names
         )
-
 
     except Exception as e:
 
