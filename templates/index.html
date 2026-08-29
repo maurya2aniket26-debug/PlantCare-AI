@@ -1418,11 +1418,6 @@ footer{
                 </p>
 
 
-                <!--
-                IMPORTANT:
-                capture="environment" is the phone-camera fix.
-                -->
-
                 <form
                     id="predictForm"
                     action="/predict"
@@ -1436,7 +1431,6 @@ footer{
                         id="imageInput"
                         name="image"
                         accept="image/jpeg,image/png,image/webp,image/*"
-                        capture="environment"
                         hidden
                     >
 
@@ -2016,6 +2010,7 @@ function openScanner(){
 
 /* =====================================================
    CHOOSE IMAGE
+   FIXED
 ===================================================== */
 
 function chooseImage(){
@@ -2023,17 +2018,23 @@ function chooseImage(){
     const input =
         document.getElementById("imageInput");
 
-    if(input){
-
-        input.click();
-
+    if(!input){
+        return;
     }
+
+    /*
+     * Remove capture so normal file selection
+     * works correctly.
+     */
+    input.removeAttribute("capture");
+
+    input.click();
 }
 
 
 /* =====================================================
    PHONE CAMERA
-   IMPORTANT FIX
+   FIXED
 ===================================================== */
 
 function openPhoneCamera(){
@@ -2056,14 +2057,8 @@ function openPhoneCamera(){
     }
 
     /*
-     * capture="environment" tells the mobile browser
-     * to prefer the rear camera.
-     *
-     * This does NOT require getUserMedia().
-     * Therefore it works much better with a Flask
-     * website running on HTTP.
+     * Use the rear camera on supported phones.
      */
-
     input.setAttribute(
         "capture",
         "environment"
@@ -2074,7 +2069,8 @@ function openPhoneCamera(){
 
 
 /* =====================================================
-   IMAGE PREVIEW
+   IMAGE PREVIEW + FILE CHECK
+   FIXED
 ===================================================== */
 
 document.addEventListener(
@@ -2093,17 +2089,36 @@ document.addEventListener(
             function(event){
 
                 const file =
+                    event.target.files &&
                     event.target.files[0];
 
                 if(!file){
                     return;
                 }
 
+
+                /* Make sure the selected item is an image */
+
+                if(!file.type.startsWith("image/")){
+
+                    alert(
+                        "Please select a JPG, PNG or WEBP image."
+                    );
+
+                    input.value = "";
+
+                    return;
+                }
+
+
+                /* Show preview */
+
                 const preview =
                     document.getElementById("preview");
 
                 const previewImage =
                     document.getElementById("previewImage");
+
 
                 if(previewImage){
 
@@ -2123,6 +2138,7 @@ document.addEventListener(
 
                 }
 
+
                 if(preview){
 
                     preview.style.display =
@@ -2130,15 +2146,19 @@ document.addEventListener(
 
                 }
 
+
                 const message =
                     document.getElementById(
                         "cameraMessage"
                     );
 
+
                 if(message){
 
                     message.innerHTML =
-                        "✓ Photo selected. Click Analyze Image.";
+                        "✓ Image selected: " +
+                        file.name +
+                        " — Click Analyze Image.";
 
                 }
 
@@ -2151,6 +2171,7 @@ document.addEventListener(
 
 /* =====================================================
    FORM VALIDATION
+   FIXED
 ===================================================== */
 
 function validateImage(){
@@ -2170,6 +2191,21 @@ function validateImage(){
 
         return false;
     }
+
+
+    const file =
+        input.files[0];
+
+
+    if(!file.type.startsWith("image/")){
+
+        alert(
+            "Please select a valid plant image."
+        );
+
+        return false;
+    }
+
 
     return true;
 }
@@ -2204,10 +2240,6 @@ async function startCamera(){
         return;
     }
 
-
-    /*
-     * Check browser support
-     */
 
     if(
         !navigator.mediaDevices ||
@@ -2370,6 +2402,7 @@ async function startCamera(){
 
 /* =====================================================
    CAPTURE DESKTOP CAMERA PHOTO
+   FIXED
 ===================================================== */
 
 function takePhoto(){
@@ -2400,8 +2433,8 @@ function takePhoto(){
     ){
 
         /*
-         * If the phone does not have getUserMedia,
-         * automatically open the phone camera.
+         * On phone without getUserMedia,
+         * open phone camera.
          */
 
         if(
@@ -2464,15 +2497,26 @@ function takePhoto(){
             }
 
 
+            /*
+             * Convert captured camera image
+             * into a real File object.
+             */
+
             const file =
                 new File(
                     [blob],
                     "camera_plant.jpg",
                     {
-                        type:"image/jpeg"
+                        type:"image/jpeg",
+                        lastModified:Date.now()
                     }
                 );
 
+
+            /*
+             * Put captured image into
+             * the SAME input used by Flask.
+             */
 
             try{
 
@@ -2504,10 +2548,25 @@ function takePhoto(){
             }
 
 
+            /*
+             * Show captured image.
+             */
+
             if(previewImage){
 
+                if(
+                    previewImage.src &&
+                    previewImage.src.startsWith("blob:")
+                ){
+
+                    URL.revokeObjectURL(
+                        previewImage.src
+                    );
+
+                }
+
                 previewImage.src =
-                    URL.createObjectURL(blob);
+                    URL.createObjectURL(file);
 
             }
 
@@ -2523,7 +2582,7 @@ function takePhoto(){
             if(message){
 
                 message.innerHTML =
-                    "✓ Photo captured. Click Analyze Image.";
+                    "✓ Photo captured successfully. Click Analyze Image.";
 
             }
 
