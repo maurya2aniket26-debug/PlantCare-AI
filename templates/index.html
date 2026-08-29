@@ -1,0 +1,2687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>PlantAI | Disease Detection & Care</title>
+
+<style>
+:root{
+    --bg:#070A09;
+    --panel:rgba(255,255,255,.065);
+    --border:rgba(255,255,255,.15);
+    --emerald:#00FF87;
+    --cyan:#00F0FF;
+    --pink:#FF2E93;
+    --lime:#CCFF00;
+    --purple:#A855F7;
+    --white:#F5FFF9;
+    --muted:#9BA9A1;
+    --danger:#FF3B5C;
+    --warning:#FFB020;
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+html{
+    scroll-behavior:smooth;
+}
+
+body{
+    font-family:Arial,Helvetica,sans-serif;
+    color:var(--white);
+    background:var(--bg);
+    min-height:100vh;
+    overflow-x:hidden;
+}
+
+body::before{
+    content:"";
+    position:fixed;
+    width:450px;
+    height:450px;
+    left:-180px;
+    top:-150px;
+    background:var(--emerald);
+    opacity:.09;
+    filter:blur(100px);
+    border-radius:50%;
+    pointer-events:none;
+}
+
+body::after{
+    content:"";
+    position:fixed;
+    width:400px;
+    height:400px;
+    right:-150px;
+    bottom:-100px;
+    background:var(--purple);
+    opacity:.08;
+    filter:blur(100px);
+    border-radius:50%;
+    pointer-events:none;
+}
+
+/* NAVBAR */
+
+.navbar{
+    position:sticky;
+    top:0;
+    z-index:100;
+    min-height:75px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:15px;
+    padding:10px 35px;
+    background:rgba(7,10,9,.82);
+    backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--border);
+}
+
+.logo{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.logo-icon{
+    width:42px;
+    height:42px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:13px;
+    background:linear-gradient(135deg,var(--emerald),var(--cyan));
+    color:#00130B;
+    font-size:22px;
+    box-shadow:0 0 25px rgba(0,255,135,.35);
+}
+
+.logo h2{
+    font-size:19px;
+}
+
+.logo span{
+    color:var(--emerald);
+}
+
+.nav-tabs{
+    display:flex;
+    gap:8px;
+}
+
+.nav-tabs button{
+    border:1px solid transparent;
+    background:transparent;
+    color:var(--muted);
+    padding:11px 18px;
+    border-radius:12px;
+    cursor:pointer;
+    font-weight:bold;
+    transition:.25s;
+}
+
+.nav-tabs button:hover,
+.nav-tabs button.active{
+    color:white;
+    background:rgba(0,255,135,.10);
+    border-color:rgba(0,255,135,.25);
+}
+
+/* MAIN */
+
+.container{
+    width:min(1150px,92%);
+    margin:auto;
+}
+
+.tab-page{
+    display:none;
+    padding:40px 0 60px;
+    animation:pageIn .35s ease;
+}
+
+.tab-page.active{
+    display:block;
+}
+
+@keyframes pageIn{
+    from{
+        opacity:0;
+        transform:translateY(12px);
+    }
+    to{
+        opacity:1;
+        transform:translateY(0);
+    }
+}
+
+/* HERO */
+
+.hero{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:30px;
+    margin-bottom:30px;
+}
+
+.hero-text{
+    max-width:650px;
+}
+
+.badge{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    padding:7px 11px;
+    border-radius:50px;
+    color:var(--emerald);
+    background:rgba(0,255,135,.08);
+    border:1px solid rgba(0,255,135,.22);
+    font-size:11px;
+    font-weight:bold;
+    letter-spacing:1px;
+}
+
+.live-dot{
+    width:7px;
+    height:7px;
+    background:var(--emerald);
+    border-radius:50%;
+    box-shadow:0 0 12px var(--emerald);
+}
+
+.hero h1{
+    font-size:clamp(32px,5vw,54px);
+    line-height:1.05;
+    margin:15px 0 12px;
+}
+
+.gradient-text{
+    background:linear-gradient(
+        90deg,
+        var(--emerald),
+        var(--cyan),
+        var(--lime)
+    );
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+}
+
+.hero p{
+    color:var(--muted);
+    line-height:1.6;
+    font-size:15px;
+}
+
+/* GLASS */
+
+.glass{
+    background:linear-gradient(
+        135deg,
+        rgba(255,255,255,.08),
+        rgba(255,255,255,.025)
+    );
+    border:1px solid var(--border);
+    border-radius:22px;
+    backdrop-filter:blur(20px);
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
+}
+
+/* BUTTONS */
+
+.btn{
+    border:none;
+    padding:14px 20px;
+    border-radius:13px;
+    font-weight:bold;
+    cursor:pointer;
+    transition:.25s;
+}
+
+.btn:hover{
+    transform:translateY(-2px);
+}
+
+.primary{
+    color:#00130B;
+    background:linear-gradient(
+        100deg,
+        var(--emerald),
+        var(--lime)
+    );
+    box-shadow:0 0 30px rgba(0,255,135,.20);
+}
+
+.secondary{
+    color:white;
+    background:rgba(255,255,255,.06);
+    border:1px solid var(--border);
+}
+
+/* SENSORS */
+
+.sensor-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:15px;
+    margin-bottom:18px;
+}
+
+.sensor{
+    padding:20px;
+}
+
+.sensor-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.sensor-icon{
+    width:43px;
+    height:43px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:14px;
+    background:rgba(255,255,255,.08);
+    font-size:21px;
+}
+
+.sensor-name{
+    color:var(--muted);
+    font-size:11px;
+    font-weight:bold;
+    letter-spacing:1px;
+}
+
+.sensor-value{
+    font-size:28px;
+    font-weight:900;
+    margin-top:15px;
+}
+
+.sensor-status{
+    font-size:11px;
+    margin-top:5px;
+    color:var(--sensor-color);
+}
+
+/* DASHBOARD */
+
+.dashboard-grid{
+    display:grid;
+    grid-template-columns:1.1fr .9fr;
+    gap:18px;
+}
+
+.health-card,
+.scanner-card,
+.diagnosis-card,
+.upload-card{
+    padding:25px;
+}
+
+.card-title{
+    font-size:16px;
+    margin-bottom:5px;
+}
+
+.card-subtitle{
+    color:var(--muted);
+    font-size:12px;
+}
+
+.health-content{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:30px;
+    margin-top:25px;
+}
+
+.health-ring{
+    width:165px;
+    height:165px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:conic-gradient(
+        var(--emerald) 0 86%,
+        rgba(255,255,255,.07) 86% 100%
+    );
+    position:relative;
+}
+
+.health-ring::before{
+    content:"";
+    position:absolute;
+    inset:12px;
+    border-radius:50%;
+    background:#0A110C;
+}
+
+.health-number{
+    position:relative;
+    text-align:center;
+}
+
+.health-number strong{
+    display:block;
+    font-size:37px;
+}
+
+.health-number span{
+    color:var(--muted);
+    font-size:10px;
+}
+
+.health-list{
+    display:grid;
+    gap:12px;
+    font-size:12px;
+    color:var(--muted);
+}
+
+.health-list b{
+    color:white;
+}
+
+.scanner-card{
+    background:linear-gradient(
+        135deg,
+        rgba(0,255,135,.11),
+        rgba(0,240,255,.06),
+        rgba(168,85,247,.07)
+    );
+}
+
+.scanner-card h2{
+    font-size:27px;
+    margin:8px 0;
+}
+
+.scanner-card p{
+    color:var(--muted);
+    font-size:13px;
+    line-height:1.6;
+}
+
+.scanner-actions{
+    display:flex;
+    gap:9px;
+    flex-wrap:wrap;
+    margin-top:20px;
+}
+
+/* CAMERA */
+
+.scanner-layout{
+    display:grid;
+    grid-template-columns:1.15fr .85fr;
+    gap:18px;
+    margin-top:18px;
+}
+
+.camera-card{
+    padding:15px;
+}
+
+.camera{
+    height:470px;
+    border-radius:18px;
+    position:relative;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:
+        radial-gradient(
+            circle,
+            rgba(0,255,135,.20),
+            transparent 35%
+        ),
+        linear-gradient(
+            135deg,
+            #0C2413,
+            #071C14,
+            #07111A
+        );
+}
+
+#cameraVideo{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    border-radius:18px;
+    display:none;
+    position:absolute;
+    inset:0;
+    z-index:1;
+    background:#000;
+}
+
+.camera.video-active #cameraVideo{
+    display:block;
+}
+
+.camera.video-active .leaf{
+    display:none;
+}
+
+.camera-grid{
+    position:absolute;
+    inset:0;
+    background:
+        linear-gradient(
+            rgba(0,240,255,.10) 1px,
+            transparent 1px
+        ),
+        linear-gradient(
+            90deg,
+            rgba(0,240,255,.10) 1px,
+            transparent 1px
+        );
+    background-size:45px 45px;
+    z-index:2;
+    pointer-events:none;
+}
+
+.leaf{
+    font-size:145px;
+    position:relative;
+    z-index:2;
+    filter:drop-shadow(
+        0 0 35px rgba(0,255,135,.40)
+    );
+    animation:leafPulse 2.5s infinite ease-in-out;
+}
+
+@keyframes leafPulse{
+    50%{
+        transform:scale(1.06) rotate(-5deg);
+    }
+}
+
+.target{
+    position:absolute;
+    width:230px;
+    height:230px;
+    border:2px solid rgba(0,255,135,.75);
+    border-radius:20px;
+    z-index:3;
+    pointer-events:none;
+}
+
+.scan-line{
+    position:absolute;
+    left:10%;
+    right:10%;
+    height:2px;
+    background:linear-gradient(
+        90deg,
+        transparent,
+        var(--cyan),
+        transparent
+    );
+    box-shadow:0 0 15px var(--cyan);
+    z-index:4;
+    animation:scan 2.5s infinite linear;
+    pointer-events:none;
+}
+
+@keyframes scan{
+    from{top:8%;}
+    to{top:92%;}
+}
+
+.camera-label{
+    position:absolute;
+    left:15px;
+    top:15px;
+    z-index:5;
+    padding:8px 11px;
+    background:rgba(0,0,0,.55);
+    border:1px solid rgba(0,255,135,.3);
+    border-radius:10px;
+    font-size:10px;
+    color:var(--emerald);
+    pointer-events:none;
+}
+
+/* UPLOAD */
+
+.upload-box{
+    margin-top:20px;
+    min-height:200px;
+    border:2px dashed rgba(0,255,135,.30);
+    border-radius:18px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:25px;
+    background:rgba(0,255,135,.035);
+}
+
+.upload-icon{
+    font-size:42px;
+    margin-bottom:10px;
+}
+
+.upload-box p{
+    color:var(--muted);
+    font-size:12px;
+    margin:8px 0 18px;
+}
+
+.upload-box form{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+}
+
+.preview{
+    margin-top:18px;
+    text-align:center;
+    display:none;
+}
+
+.preview img{
+    max-width:100%;
+    max-height:190px;
+    border-radius:15px;
+    border:2px solid rgba(0,255,135,.35);
+}
+
+.error-box{
+    margin-bottom:20px;
+    padding:16px 18px;
+    border-radius:15px;
+    background:rgba(255,59,92,.10);
+    border:1px solid rgba(255,59,92,.35);
+    color:#FF7890;
+    font-size:13px;
+    line-height:1.5;
+}
+
+/* DIAGNOSIS */
+
+.diagnosis-grid{
+    display:grid;
+    grid-template-columns:.9fr 1.1fr;
+    gap:18px;
+}
+
+.disease-header{
+    display:flex;
+    align-items:center;
+    gap:15px;
+    margin-top:20px;
+    padding:18px;
+    border-radius:17px;
+    background:rgba(255,46,147,.07);
+    border:1px solid rgba(255,46,147,.20);
+}
+
+.plant-icon{
+    width:60px;
+    height:60px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:34px;
+    border-radius:17px;
+    background:linear-gradient(
+        135deg,
+        rgba(0,255,135,.15),
+        rgba(0,240,255,.10)
+    );
+}
+
+.disease-header h2{
+    font-size:20px;
+}
+
+.disease-header p{
+    color:var(--muted);
+    font-size:12px;
+    margin-top:5px;
+}
+
+.danger-badge{
+    display:inline-block;
+    margin-top:18px;
+    padding:7px 11px;
+    border-radius:50px;
+    background:rgba(255,46,147,.12);
+    border:1px solid rgba(255,46,147,.30);
+    color:#FF66B4;
+    font-size:10px;
+    font-weight:bold;
+}
+
+.confidence{
+    margin-top:25px;
+}
+
+.confidence-head{
+    display:flex;
+    justify-content:space-between;
+    font-size:12px;
+}
+
+.confidence-value{
+    color:var(--emerald);
+    font-weight:bold;
+}
+
+.progress{
+    height:10px;
+    margin-top:10px;
+    border-radius:50px;
+    background:rgba(255,255,255,.08);
+    overflow:hidden;
+}
+
+.progress-bar{
+    height:100%;
+    border-radius:50px;
+    background:linear-gradient(
+        90deg,
+        var(--emerald),
+        var(--cyan),
+        var(--purple)
+    );
+}
+
+.severity{
+    margin-top:25px;
+}
+
+.severity-track{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:4px;
+    margin-top:10px;
+}
+
+.severity-track div{
+    height:10px;
+}
+
+.mild{background:var(--emerald);}
+.moderate{background:var(--warning);}
+.critical{background:var(--danger);}
+
+.severity-labels{
+    display:flex;
+    justify-content:space-between;
+    margin-top:6px;
+    color:var(--muted);
+    font-size:10px;
+}
+
+.care-steps{
+    display:grid;
+    gap:11px;
+    margin-top:20px;
+}
+
+.care-step{
+    display:flex;
+    gap:13px;
+    padding:15px;
+    border-radius:16px;
+    background:rgba(255,255,255,.035);
+    border:1px solid rgba(255,255,255,.08);
+}
+
+.step-icon{
+    width:42px;
+    height:42px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:13px;
+    font-size:20px;
+    background:linear-gradient(
+        135deg,
+        rgba(0,255,135,.20),
+        rgba(168,85,247,.15)
+    );
+}
+
+.care-step h4{
+    font-size:13px;
+    margin-bottom:5px;
+}
+
+.care-step p{
+    color:var(--muted);
+    font-size:11px;
+    line-height:1.5;
+}
+
+.recovery{
+    margin-top:18px;
+    padding:22px;
+}
+
+.recovery-line{
+    display:flex;
+    align-items:center;
+    margin-top:25px;
+}
+
+.recovery-node{
+    width:17px;
+    height:17px;
+    border-radius:50%;
+    background:var(--emerald);
+    box-shadow:0 0 15px rgba(0,255,135,.55);
+    flex-shrink:0;
+}
+
+.recovery-connector{
+    height:3px;
+    flex:1;
+    background:linear-gradient(
+        90deg,
+        var(--emerald),
+        rgba(255,255,255,.12)
+    );
+}
+
+.recovery-labels{
+    display:flex;
+    justify-content:space-between;
+    color:var(--muted);
+    font-size:10px;
+    margin-top:8px;
+}
+
+/* SUPPORTED */
+
+.supported-section{
+    padding:25px;
+    margin-bottom:25px;
+}
+
+.plant-list{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:10px;
+    margin-top:20px;
+}
+
+.plant-item{
+    padding:14px;
+    border-radius:14px;
+    text-align:center;
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.09);
+    color:var(--white);
+    font-size:13px;
+}
+
+/* FOOTER */
+
+footer{
+    text-align:center;
+    padding:25px;
+    color:#66736C;
+    font-size:11px;
+}
+
+/* MOBILE */
+
+@media(max-width:850px){
+
+    .sensor-grid{
+        grid-template-columns:repeat(2,1fr);
+    }
+
+    .dashboard-grid,
+    .scanner-layout,
+    .diagnosis-grid{
+        grid-template-columns:1fr;
+    }
+
+    .hero{
+        display:block;
+    }
+
+    .hero .primary{
+        margin-top:20px;
+    }
+}
+
+@media(max-width:600px){
+
+    .navbar{
+        padding:10px 12px;
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .logo{
+        justify-content:center;
+    }
+
+    .nav-tabs{
+        width:100%;
+    }
+
+    .nav-tabs button{
+        flex:1;
+        padding:10px 7px;
+        font-size:11px;
+    }
+
+    .container{
+        width:94%;
+    }
+
+    .tab-page{
+        padding-top:25px;
+    }
+
+    .sensor-grid{
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+    }
+
+    .sensor{
+        padding:15px;
+    }
+
+    .sensor-value{
+        font-size:23px;
+    }
+
+    .health-content{
+        flex-direction:column;
+    }
+
+    .camera{
+        height:380px;
+    }
+
+    .target{
+        width:190px;
+        height:190px;
+    }
+
+    .leaf{
+        font-size:110px;
+    }
+
+    .btn{
+        width:100%;
+    }
+
+    .scanner-actions{
+        flex-direction:column;
+    }
+
+    .upload-box form{
+        flex-direction:column;
+        width:100%;
+    }
+
+    .camera-card > div:last-child{
+        flex-direction:column;
+    }
+}
+
+@media(max-width:400px){
+
+    .nav-tabs button{
+        padding:8px 5px;
+        font-size:10px;
+    }
+
+    .logo-icon{
+        width:36px;
+        height:36px;
+    }
+
+    .sensor-icon{
+        width:36px;
+        height:36px;
+    }
+
+    .sensor-value{
+        font-size:20px;
+    }
+
+    .health-ring{
+        width:145px;
+        height:145px;
+    }
+}
+
+/* PHONE CAMERA BUTTON */
+
+.phone-camera-button{
+    display:none;
+}
+
+@media(max-width:600px){
+
+    .phone-camera-button{
+        display:block;
+    }
+
+    .desktop-camera-button{
+        display:none;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<!-- NAVIGATION -->
+
+<nav class="navbar">
+
+    <div class="logo">
+        <div class="logo-icon">🌿</div>
+
+        <h2>
+            Plant<span>AI</span>
+        </h2>
+    </div>
+
+<div style="
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+">
+
+    <div class="nav-tabs">
+
+        <button
+            class="active"
+            onclick="openTab('dashboard',this)"
+        >
+            🌱 Dashboard
+        </button>
+
+        <button
+            onclick="openTab('diagnosis',this)"
+        >
+            🔬 Diagnostics
+        </button>
+
+    </div>
+
+
+    <!-- USER PROFILE -->
+
+    <div style="
+        display:flex;
+        align-items:center;
+        gap:8px;
+        padding:7px 9px;
+        border-radius:12px;
+        background:rgba(255,255,255,.055);
+        border:1px solid rgba(255,255,255,.10);
+    ">
+
+        <div style="
+            width:30px;
+            height:30px;
+            border-radius:10px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background:linear-gradient(
+                135deg,
+                var(--emerald),
+                var(--cyan)
+            );
+            color:#00130B;
+            font-weight:bold;
+            font-size:13px;
+        ">
+            👤
+        </div>
+
+        <span style="
+            color:var(--white);
+            font-size:11px;
+            font-weight:bold;
+            max-width:100px;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
+        ">
+            {{ username }}
+        </span>
+
+        <a
+            href="{{ url_for('logout') }}"
+            style="
+                text-decoration:none;
+                color:#FF7890;
+                font-size:11px;
+                font-weight:bold;
+                padding:6px 8px;
+                border-radius:8px;
+                background:rgba(255,59,92,.08);
+                border:1px solid rgba(255,59,92,.18);
+            "
+        >
+            Logout
+        </a>
+
+    </div>
+
+</div>
+
+</nav>
+
+
+<!-- DASHBOARD -->
+
+<section id="dashboard" class="tab-page active">
+
+<div class="container">
+
+    <div class="hero">
+
+        <div class="hero-text">
+
+            <div class="badge">
+                <span class="live-dot"></span>
+                AI SYSTEM ONLINE
+            </div>
+
+            <h1>
+                Protect your plants with
+                <span class="gradient-text">AI</span>
+            </h1>
+
+            <p>
+                Upload a leaf image or use your device
+                camera to detect plant diseases and
+                receive personalized care recommendations.
+            </p>
+
+        </div>
+
+        <button
+            class="btn primary"
+            onclick="openScanner()"
+        >
+            ✦ Launch AI Scanner
+        </button>
+
+    </div>
+
+
+    {% if error %}
+
+    <div class="error-box">
+        {{ error }}
+    </div>
+
+    {% endif %}
+
+
+    <!-- SENSORS -->
+
+    <div class="sensor-grid">
+
+        <div class="glass sensor"
+             style="--sensor-color:#00F0FF">
+
+            <div class="sensor-top">
+
+                <span class="sensor-name">
+                    SUNLIGHT
+                </span>
+
+                <div class="sensor-icon">
+                    ☀️
+                </div>
+
+            </div>
+
+            <div class="sensor-value">
+                7.4h
+            </div>
+
+            <div class="sensor-status">
+                ● Excellent
+            </div>
+
+        </div>
+
+
+        <div class="glass sensor"
+             style="--sensor-color:#00FF87">
+
+            <div class="sensor-top">
+
+                <span class="sensor-name">
+                    SOIL MOISTURE
+                </span>
+
+                <div class="sensor-icon">
+                    💧
+                </div>
+
+            </div>
+
+            <div class="sensor-value">
+                54%
+            </div>
+
+            <div class="sensor-status">
+                ● Good
+            </div>
+
+        </div>
+
+
+        <div class="glass sensor"
+             style="--sensor-color:#A855F7">
+
+            <div class="sensor-top">
+
+                <span class="sensor-name">
+                    HUMIDITY
+                </span>
+
+                <div class="sensor-icon">
+                    💦
+                </div>
+
+            </div>
+
+            <div class="sensor-value">
+                68%
+            </div>
+
+            <div class="sensor-status">
+                ● Optimal
+            </div>
+
+        </div>
+
+
+        <div class="glass sensor"
+             style="--sensor-color:#FFB020">
+
+            <div class="sensor-top">
+
+                <span class="sensor-name">
+                    TEMPERATURE
+                </span>
+
+                <div class="sensor-icon">
+                    🌡️
+                </div>
+
+            </div>
+
+            <div class="sensor-value">
+                27°C
+            </div>
+
+            <div class="sensor-status">
+                ● Ideal
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="dashboard-grid">
+
+        <!-- HEALTH -->
+
+        <div class="glass health-card">
+
+            <div class="card-title">
+                Plant Health Score
+            </div>
+
+            <div class="card-subtitle">
+                Overall garden condition
+            </div>
+
+            <div class="health-content">
+
+                <div class="health-ring">
+
+                    <div class="health-number">
+
+                        <strong>86%</strong>
+
+                        <span>HEALTHY</span>
+
+                    </div>
+
+                </div>
+
+                <div class="health-list">
+
+                    <div>
+                        🌿 <b>Healthy</b> · 72%
+                    </div>
+
+                    <div>
+                        ⚠️ <b>Attention</b> · 18%
+                    </div>
+
+                    <div>
+                        🔴 <b>Critical</b> · 10%
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- SCANNER -->
+
+        <div
+            id="scanner"
+            class="glass scanner-card"
+        >
+
+            <div class="badge">
+                AI VISION ENGINE
+            </div>
+
+            <h2>
+                Scan a plant
+            </h2>
+
+            <p>
+                Our AI analyzes leaf patterns,
+                discoloration and visible symptoms
+                to identify possible diseases.
+            </p>
+
+            <div class="scanner-actions">
+
+                <!-- DESKTOP CAMERA -->
+
+                <button
+                    type="button"
+                    class="btn primary desktop-camera-button"
+                    onclick="startCamera()"
+                >
+                    📷 Open Camera
+                </button>
+
+                <!-- PHONE CAMERA -->
+
+                <button
+                    type="button"
+                    class="btn primary phone-camera-button"
+                    onclick="openPhoneCamera()"
+                >
+                    📱 Open Phone Camera
+                </button>
+
+                <button
+                    type="button"
+                    class="btn secondary"
+                    onclick="chooseImage()"
+                >
+                    📁 Upload Image
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- CAMERA + UPLOAD -->
+
+    <div class="scanner-layout">
+
+        <!-- CAMERA -->
+
+        <div class="glass camera-card">
+
+            <div
+                class="camera"
+                id="cameraArea"
+            >
+
+                <video
+                    id="cameraVideo"
+                    autoplay
+                    muted
+                    playsinline
+                ></video>
+
+                <div class="camera-grid"></div>
+
+                <div
+                    class="camera-label"
+                    id="cameraLabel"
+                >
+                    ● CAMERA READY
+                </div>
+
+                <div
+                    class="leaf"
+                    id="cameraLeaf"
+                >
+                    🌿
+                </div>
+
+                <div class="target"></div>
+
+                <div class="scan-line"></div>
+
+            </div>
+
+
+            <div
+                id="cameraMessage"
+                style="
+                    margin-top:12px;
+                    color:var(--muted);
+                    font-size:12px;
+                    text-align:center;
+                    min-height:18px;
+                "
+            >
+                Press "Open Camera" to start.
+            </div>
+
+
+            <div
+                style="
+                    display:flex;
+                    gap:10px;
+                    margin-top:12px;
+                "
+            >
+
+                <button
+                    type="button"
+                    class="btn primary"
+                    onclick="takePhoto()"
+                >
+                    📸 Capture
+                </button>
+
+                <button
+                    type="button"
+                    class="btn secondary"
+                    onclick="stopCamera()"
+                >
+                    ✕ Stop Camera
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- UPLOAD -->
+
+        <div class="glass upload-card">
+
+            <div class="badge">
+                IMAGE ANALYSIS
+            </div>
+
+            <h2 style="margin-top:10px">
+                Upload plant photo
+            </h2>
+
+            <p
+                style="
+                    color:var(--muted);
+                    font-size:12px;
+                    margin-top:7px;
+                "
+            >
+                Best results come from clear,
+                well-lit leaf images.
+            </p>
+
+
+            <div class="upload-box">
+
+                <div class="upload-icon">
+                    📸
+                </div>
+
+                <strong>
+                    Select a plant image
+                </strong>
+
+                <p>
+                    JPG, PNG or WEBP
+                </p>
+
+
+                <!--
+                IMPORTANT:
+                capture="environment" is the phone-camera fix.
+                -->
+
+                <form
+                    id="predictForm"
+                    action="/predict"
+                    method="POST"
+                    enctype="multipart/form-data"
+                    onsubmit="return validateImage()"
+                >
+
+                    <input
+                        type="file"
+                        id="imageInput"
+                        name="image"
+                        accept="image/jpeg,image/png,image/webp,image/*"
+                        capture="environment"
+                        hidden
+                    >
+
+
+                    <button
+                        type="button"
+                        class="btn secondary"
+                        onclick="chooseImage()"
+                    >
+                        📁 Choose Image
+                    </button>
+
+
+                    <button
+                        type="submit"
+                        class="btn primary"
+                    >
+                        ✦ Analyze Image
+                    </button>
+
+                </form>
+
+            </div>
+
+
+            <div
+                id="preview"
+                class="preview"
+            >
+
+                <p
+                    style="
+                        color:var(--muted);
+                        font-size:11px;
+                        margin-bottom:8px;
+                    "
+                >
+                    Selected image
+                </p>
+
+                <img
+                    id="previewImage"
+                    src=""
+                    alt="Plant preview"
+                >
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</section>
+
+
+<!-- DIAGNOSIS -->
+
+<section
+    id="diagnosis"
+    class="tab-page"
+>
+
+<div class="container">
+
+    <div class="hero">
+
+        <div class="hero-text">
+
+            <div class="badge">
+                ✦ AI DIAGNOSIS
+            </div>
+
+            <h1>
+                Plant
+                <span class="gradient-text">
+                    Diagnostics
+                </span>
+            </h1>
+
+            <p>
+                AI-powered disease identification
+                and personalized care recommendations.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    {% if plant %}
+
+    <div class="diagnosis-grid">
+
+        <!-- DETECTION -->
+
+        <div class="glass diagnosis-card">
+
+            <div class="card-title">
+                Detection Result
+            </div>
+
+            <div class="card-subtitle">
+                MobileNetV2 AI analysis
+            </div>
+
+
+            <div class="disease-header">
+
+                <div class="plant-icon">
+
+                    {% if plant == "Tomato" %}
+                        🍅
+                    {% elif plant == "Apple" %}
+                        🍎
+                    {% elif plant == "Grape" %}
+                        🍇
+                    {% elif plant == "Potato" %}
+                        🥔
+                    {% elif plant == "Corn" %}
+                        🌽
+                    {% elif plant == "Strawberry" %}
+                        🍓
+                    {% elif plant == "Peach" %}
+                        🍑
+                    {% elif plant == "Blueberry" %}
+                        🫐
+                    {% else %}
+                        🌿
+                    {% endif %}
+
+                </div>
+
+                <div>
+
+                    <h2>
+                        {{ plant }}
+                    </h2>
+
+                    <p>
+                        {{ disease }}
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            {% if disease|lower == "healthy" %}
+
+            <span
+                class="danger-badge"
+                style="
+                    color:var(--emerald);
+                    background:rgba(0,255,135,.08);
+                    border-color:rgba(0,255,135,.25);
+                "
+            >
+                ✓ PLANT HEALTHY
+            </span>
+
+            {% else %}
+
+            <span class="danger-badge">
+                ⚠ {{ status|default("DISEASE DETECTED") }}
+            </span>
+
+            {% endif %}
+
+
+            <div class="confidence">
+
+                <div class="confidence-head">
+
+                    <span>
+                        AI Confidence
+                    </span>
+
+                    <span class="confidence-value">
+                        {{ confidence }}%
+                    </span>
+
+                </div>
+
+                <div class="progress">
+
+                    <div
+                        class="progress-bar"
+                        style="width:{{ confidence }}%"
+                    ></div>
+
+                </div>
+
+            </div>
+
+
+            <div class="severity">
+
+                <b>
+                    Detection Status
+                </b>
+
+                <div class="severity-track">
+
+                    <div class="mild"></div>
+                    <div class="moderate"></div>
+                    <div class="critical"></div>
+
+                </div>
+
+                <div class="severity-labels">
+
+                    <span>Mild</span>
+                    <span>Moderate</span>
+                    <span>High</span>
+
+                </div>
+
+                <p
+                    style="
+                        margin-top:15px;
+                        color:var(--muted);
+                        font-size:11px;
+                    "
+                >
+                    AI status:
+
+                    <strong style="color:var(--white)">
+                        {{ severity }}
+                    </strong>
+
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- CARE -->
+
+        <div class="glass diagnosis-card">
+
+            <div class="badge">
+                CARE PLAN
+            </div>
+
+            <h2 style="margin-top:10px">
+                Recommended Treatment
+            </h2>
+
+            <p
+                style="
+                    color:var(--muted);
+                    font-size:12px;
+                    margin-top:7px;
+                "
+            >
+                Personalized recommendations for
+
+                <strong style="color:white">
+                    {{ plant }}
+                </strong>
+
+                — {{ disease }}.
+            </p>
+
+
+            <div class="care-steps">
+
+                <div class="care-step">
+
+                    <div class="step-icon">
+                        🌿
+                    </div>
+
+                    <div>
+
+                        <h4>
+                            01 · Plant Care
+                        </h4>
+
+                        <p>
+                            {{ care }}
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="care-step">
+
+                    <div class="step-icon">
+                        💧
+                    </div>
+
+                    <div>
+
+                        <h4>
+                            02 · Water & Environment
+                        </h4>
+
+                        <p>
+                            Maintain suitable moisture
+                            for the plant and avoid
+                            unnecessary prolonged
+                            leaf wetness.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="care-step">
+
+                    <div class="step-icon">
+                        ☀️
+                    </div>
+
+                    <div>
+
+                        <h4>
+                            03 · Growing Conditions
+                        </h4>
+
+                        <p>
+                            Maintain suitable sunlight,
+                            ventilation and growing
+                            conditions for the plant.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="care-step">
+
+                    <div class="step-icon">
+                        🔄
+                    </div>
+
+                    <div>
+
+                        <h4>
+                            04 · Re-scan
+                        </h4>
+
+                        <p>
+                            Check the plant again after
+                            several days and compare
+                            the condition.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="glass recovery">
+
+        <div class="card-title">
+            Recovery Tracker
+        </div>
+
+        <div class="card-subtitle">
+            Monitor plant improvement
+        </div>
+
+        <div class="recovery-line">
+
+            <div class="recovery-node"></div>
+            <div class="recovery-connector"></div>
+            <div class="recovery-node"></div>
+            <div class="recovery-connector"></div>
+            <div class="recovery-node"></div>
+            <div class="recovery-connector"></div>
+            <div class="recovery-node"></div>
+
+        </div>
+
+        <div class="recovery-labels">
+
+            <span>
+                Day 1<br>Detected
+            </span>
+
+            <span>
+                Day 4<br>Treatment
+            </span>
+
+            <span>
+                Day 8<br>Improving
+            </span>
+
+            <span>
+                Day 14<br>Re-check
+            </span>
+
+        </div>
+
+    </div>
+
+
+    {% else %}
+
+    <div
+        class="glass"
+        style="
+            padding:40px;
+            text-align:center;
+        "
+    >
+
+        <div
+            style="
+                font-size:55px;
+                margin-bottom:15px;
+            "
+        >
+            🌿
+        </div>
+
+        <h2>
+            No diagnosis yet
+        </h2>
+
+        <p
+            style="
+                color:var(--muted);
+                font-size:13px;
+                margin-top:8px;
+            "
+        >
+            Upload a plant image or open the camera
+            to start your AI diagnosis.
+        </p>
+
+        <button
+            class="btn primary"
+            style="margin-top:20px"
+            onclick="openScanner()"
+        >
+            📷 Scan Plant
+        </button>
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+</section>
+
+
+<!-- SUPPORTED PLANTS -->
+
+<section class="container">
+
+    <div class="glass supported-section">
+
+        <div class="badge">
+            🌱 SUPPORTED PLANTS
+        </div>
+
+        <h2 style="margin-top:12px">
+            Plants Supported by PlantAI
+        </h2>
+
+        <p
+            style="
+                color:var(--muted);
+                font-size:12px;
+                margin-top:7px;
+            "
+        >
+            The AI model currently contains
+            {{ plant_names|length }}
+            plant types and 38 disease/health classes.
+        </p>
+
+        <div class="plant-list">
+
+            {% for plant in plant_names %}
+
+            <div class="plant-item">
+                🌿 {{ plant }}
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<footer>
+    🌱 PlantAI · AI-Powered Plant Disease Detection & Care System
+</footer>
+
+
+<!-- HIDDEN CANVAS -->
+
+<canvas
+    id="photoCanvas"
+    style="display:none;"
+></canvas>
+
+
+<script>
+
+/* =====================================================
+   TAB SWITCHING
+===================================================== */
+
+function openTab(tabId, button){
+
+    document
+        .querySelectorAll(".tab-page")
+        .forEach(function(page){
+            page.classList.remove("active");
+        });
+
+    const selectedPage =
+        document.getElementById(tabId);
+
+    if(selectedPage){
+        selectedPage.classList.add("active");
+    }
+
+    document
+        .querySelectorAll(".nav-tabs button")
+        .forEach(function(btn){
+            btn.classList.remove("active");
+        });
+
+    if(button){
+        button.classList.add("active");
+    }
+
+    window.scrollTo({
+        top:0,
+        behavior:"smooth"
+    });
+}
+
+
+/* =====================================================
+   OPEN SCANNER
+===================================================== */
+
+function openScanner(){
+
+    const scanner =
+        document.getElementById("scanner");
+
+    if(scanner){
+
+        scanner.scrollIntoView({
+            behavior:"smooth",
+            block:"center"
+        });
+
+    }
+}
+
+
+/* =====================================================
+   CHOOSE IMAGE
+===================================================== */
+
+function chooseImage(){
+
+    const input =
+        document.getElementById("imageInput");
+
+    if(input){
+
+        input.click();
+
+    }
+}
+
+
+/* =====================================================
+   PHONE CAMERA
+   IMPORTANT FIX
+===================================================== */
+
+function openPhoneCamera(){
+
+    const input =
+        document.getElementById("imageInput");
+
+    const message =
+        document.getElementById("cameraMessage");
+
+    if(!input){
+        return;
+    }
+
+    if(message){
+
+        message.innerHTML =
+            "📱 Opening your phone camera...";
+
+    }
+
+    /*
+     * capture="environment" tells the mobile browser
+     * to prefer the rear camera.
+     *
+     * This does NOT require getUserMedia().
+     * Therefore it works much better with a Flask
+     * website running on HTTP.
+     */
+
+    input.setAttribute(
+        "capture",
+        "environment"
+    );
+
+    input.click();
+}
+
+
+/* =====================================================
+   IMAGE PREVIEW
+===================================================== */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function(){
+
+        const input =
+            document.getElementById("imageInput");
+
+        if(!input){
+            return;
+        }
+
+        input.addEventListener(
+            "change",
+            function(event){
+
+                const file =
+                    event.target.files[0];
+
+                if(!file){
+                    return;
+                }
+
+                const preview =
+                    document.getElementById("preview");
+
+                const previewImage =
+                    document.getElementById("previewImage");
+
+                if(previewImage){
+
+                    if(
+                        previewImage.src &&
+                        previewImage.src.startsWith("blob:")
+                    ){
+
+                        URL.revokeObjectURL(
+                            previewImage.src
+                        );
+
+                    }
+
+                    previewImage.src =
+                        URL.createObjectURL(file);
+
+                }
+
+                if(preview){
+
+                    preview.style.display =
+                        "block";
+
+                }
+
+                const message =
+                    document.getElementById(
+                        "cameraMessage"
+                    );
+
+                if(message){
+
+                    message.innerHTML =
+                        "✓ Photo selected. Click Analyze Image.";
+
+                }
+
+            }
+        );
+
+    }
+);
+
+
+/* =====================================================
+   FORM VALIDATION
+===================================================== */
+
+function validateImage(){
+
+    const input =
+        document.getElementById("imageInput");
+
+    if(
+        !input ||
+        !input.files ||
+        input.files.length === 0
+    ){
+
+        alert(
+            "Please select or capture a plant image first."
+        );
+
+        return false;
+    }
+
+    return true;
+}
+
+
+/* =====================================================
+   CAMERA VARIABLES
+===================================================== */
+
+let cameraStream = null;
+
+
+/* =====================================================
+   LAPTOP / DESKTOP CAMERA
+===================================================== */
+
+async function startCamera(){
+
+    const video =
+        document.getElementById("cameraVideo");
+
+    const camera =
+        document.getElementById("cameraArea");
+
+    const message =
+        document.getElementById("cameraMessage");
+
+    const label =
+        document.getElementById("cameraLabel");
+
+    if(!video || !camera || !message){
+        return;
+    }
+
+
+    /*
+     * Check browser support
+     */
+
+    if(
+        !navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia
+    ){
+
+        message.innerHTML =
+            "📱 On phones, use 'Open Phone Camera'.";
+
+        return;
+    }
+
+
+    stopCamera();
+
+    message.innerHTML =
+        "⏳ Requesting camera permission...";
+
+
+    try{
+
+        cameraStream =
+            await navigator.mediaDevices.getUserMedia({
+
+                video:{
+                    facingMode:{
+                        ideal:"environment"
+                    },
+
+                    width:{
+                        ideal:1280
+                    },
+
+                    height:{
+                        ideal:720
+                    }
+
+                },
+
+                audio:false
+
+            });
+
+
+        video.srcObject =
+            cameraStream;
+
+        video.muted = true;
+
+        video.setAttribute(
+            "playsinline",
+            ""
+        );
+
+        video.setAttribute(
+            "autoplay",
+            ""
+        );
+
+        camera.classList.add(
+            "video-active"
+        );
+
+
+        if(label){
+
+            label.innerHTML =
+                "● LIVE CAMERA";
+
+        }
+
+
+        await video.play();
+
+
+        message.innerHTML =
+            "📷 Camera active — position the leaf inside the frame.";
+
+
+        camera.scrollIntoView({
+            behavior:"smooth",
+            block:"center"
+        });
+
+    }
+
+    catch(error){
+
+        console.log(
+            "Camera error:",
+            error.name,
+            error.message
+        );
+
+        cameraStream = null;
+
+        camera.classList.remove(
+            "video-active"
+        );
+
+
+        if(label){
+
+            label.innerHTML =
+                "● CAMERA ERROR";
+
+        }
+
+
+        if(
+            error.name ===
+            "NotAllowedError"
+        ){
+
+            message.innerHTML =
+                "⚠ Camera permission denied. Allow camera permission and try again.";
+
+        }
+
+        else if(
+            error.name ===
+            "NotFoundError"
+        ){
+
+            message.innerHTML =
+                "⚠ No camera found. Use Upload Image.";
+
+        }
+
+        else if(
+            error.name ===
+            "NotReadableError"
+        ){
+
+            message.innerHTML =
+                "⚠ Camera is being used by another application.";
+
+        }
+
+        else if(
+            error.name ===
+            "SecurityError"
+        ){
+
+            message.innerHTML =
+                "⚠ Camera requires HTTPS. On phone, use 'Open Phone Camera'.";
+
+        }
+
+        else{
+
+            message.innerHTML =
+                "⚠ Camera could not be opened. Use 'Open Phone Camera' on your phone.";
+
+        }
+
+    }
+}
+
+
+/* =====================================================
+   CAPTURE DESKTOP CAMERA PHOTO
+===================================================== */
+
+function takePhoto(){
+
+    const video =
+        document.getElementById("cameraVideo");
+
+    const canvas =
+        document.getElementById("photoCanvas");
+
+    const input =
+        document.getElementById("imageInput");
+
+    const preview =
+        document.getElementById("preview");
+
+    const previewImage =
+        document.getElementById("previewImage");
+
+    const message =
+        document.getElementById("cameraMessage");
+
+
+    if(
+        !cameraStream ||
+        !video ||
+        video.videoWidth === 0
+    ){
+
+        /*
+         * If the phone does not have getUserMedia,
+         * automatically open the phone camera.
+         */
+
+        if(
+            /Android|iPhone|iPad|iPod/i.test(
+                navigator.userAgent
+            )
+        ){
+
+            openPhoneCamera();
+
+            return;
+
+        }
+
+
+        if(message){
+
+            message.innerHTML =
+                "⚠ Please open the camera first.";
+
+        }
+
+        return;
+    }
+
+
+    canvas.width =
+        video.videoWidth;
+
+    canvas.height =
+        video.videoHeight;
+
+
+    const context =
+        canvas.getContext("2d");
+
+
+    context.drawImage(
+        video,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    canvas.toBlob(
+        function(blob){
+
+            if(!blob){
+
+                if(message){
+
+                    message.innerHTML =
+                        "⚠ Could not capture photo.";
+
+                }
+
+                return;
+            }
+
+
+            const file =
+                new File(
+                    [blob],
+                    "camera_plant.jpg",
+                    {
+                        type:"image/jpeg"
+                    }
+                );
+
+
+            try{
+
+                const dataTransfer =
+                    new DataTransfer();
+
+                dataTransfer.items.add(file);
+
+                input.files =
+                    dataTransfer.files;
+
+            }
+
+            catch(error){
+
+                console.log(
+                    "File assignment error:",
+                    error
+                );
+
+                if(message){
+
+                    message.innerHTML =
+                        "⚠ Could not prepare captured image.";
+
+                }
+
+                return;
+            }
+
+
+            if(previewImage){
+
+                previewImage.src =
+                    URL.createObjectURL(blob);
+
+            }
+
+
+            if(preview){
+
+                preview.style.display =
+                    "block";
+
+            }
+
+
+            if(message){
+
+                message.innerHTML =
+                    "✓ Photo captured. Click Analyze Image.";
+
+            }
+
+
+            stopCamera();
+
+        },
+
+        "image/jpeg",
+
+        0.92
+    );
+}
+
+
+/* =====================================================
+   STOP CAMERA
+===================================================== */
+
+function stopCamera(){
+
+    if(cameraStream){
+
+        cameraStream
+            .getTracks()
+            .forEach(function(track){
+
+                track.stop();
+
+            });
+
+        cameraStream = null;
+    }
+
+
+    const video =
+        document.getElementById("cameraVideo");
+
+    const camera =
+        document.getElementById("cameraArea");
+
+    const label =
+        document.getElementById("cameraLabel");
+
+
+    if(video){
+
+        video.pause();
+
+        video.srcObject = null;
+
+    }
+
+
+    if(camera){
+
+        camera.classList.remove(
+            "video-active"
+        );
+
+    }
+
+
+    if(label){
+
+        label.innerHTML =
+            "● CAMERA READY";
+
+    }
+}
+
+
+/* =====================================================
+   PAGE CLEANUP
+===================================================== */
+
+window.addEventListener(
+    "beforeunload",
+    function(){
+
+        stopCamera();
+
+    }
+);
+
+</script>
+
+</body>
+</html>
