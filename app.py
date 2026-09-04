@@ -13,7 +13,7 @@ import sqlite3
 import time
 
 import numpy as np
-import tflite_runtime.interpreter as tflite
+import tensorflow as tf
 
 from PIL import Image, ImageOps
 
@@ -338,7 +338,7 @@ if not os.path.exists(MODEL_PATH):
         MODEL_PATH
     )
 
-interpreter = tflite.Interpreter(
+interpreter = tf.lite.Interpreter(
     model_path=MODEL_PATH
 )
 
