@@ -13,7 +13,16 @@ import sqlite3
 import time
 
 import numpy as np
-import tensorflow as tf
+try:
+    # Lightweight interpreter-only runtime (a few MB, low memory).
+    # This is what we actually deploy with on Render.
+    from ai_edge_litert.interpreter import Interpreter as TFLiteInterpreter
+except ImportError:
+    # Fallback for local machines that still have full tensorflow
+    # installed (e.g. from before this change) and haven't
+    # installed ai-edge-litert yet.
+    import tensorflow as tf
+    TFLiteInterpreter = tf.lite.Interpreter
 
 from PIL import Image, ImageOps
 
@@ -573,7 +582,7 @@ if not os.path.exists(MODEL_PATH):
         MODEL_PATH
     )
 
-interpreter = tf.lite.Interpreter(
+interpreter = TFLiteInterpreter(
     model_path=MODEL_PATH
 )
 
