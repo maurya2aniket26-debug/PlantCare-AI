@@ -1,5 +1,5 @@
 Flask
-ai-edge-litert
+tensorflow-cpu
 numpy
 Pillow
 Werkzeug
