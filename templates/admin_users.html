@@ -1,0 +1,65 @@
+{% extends "admin_base.html" %}
+{% block title %}| Users{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h2>User Management</h2>
+        <p>View, search, and remove user accounts</p>
+    </div>
+    <div class="user-chip">{{ username }}</div>
+</div>
+
+<form class="search-form" method="GET" action="{{ url_for('admin_users') }}">
+    <input
+        type="text"
+        name="q"
+        placeholder="Search by username..."
+        value="{{ search|default('') }}"
+    >
+    <button type="submit" class="btn-small">Search</button>
+</form>
+
+<div class="section">
+    <h3>Users <span>({{ users|length }} found)</span></h3>
+
+    {% if users|length == 0 %}
+    <p class="empty">No users found.</p>
+    {% else %}
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Created At</th>
+            <th>Action</th>
+        </tr>
+        {% for user in users %}
+        <tr>
+            <td>{{ user[0] }}</td>
+            <td>{{ user[1] }}</td>
+            <td>
+                {% if user[3] %}
+                <span class="pill pill-admin">ADMIN</span>
+                {% else %}
+                <span class="pill pill-user">USER</span>
+                {% endif %}
+            </td>
+            <td>{{ user[2] }}</td>
+            <td>
+                <form
+                    method="POST"
+                    action="{{ url_for('admin_delete_user', user_id=user[0]) }}"
+                    onsubmit="return confirm('Delete this user and all their prediction history? This cannot be undone.');"
+                    style="display:inline;"
+                >
+                    <button type="submit" class="btn-danger">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+</div>
+
+{% endblock %}

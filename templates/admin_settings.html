@@ -1,0 +1,90 @@
+{% extends "admin_base.html" %}
+{% block title %}| Settings{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h2>Settings</h2>
+        <p>Change your admin username or password</p>
+    </div>
+    <div class="user-chip">{{ username }}</div>
+</div>
+
+<div class="section" style="max-width:440px;">
+
+    {% if error %}
+    <div class="message error" style="margin-bottom:16px; padding:13px 15px; border-radius:13px; font-size:12px; color:#FF8095; background:rgba(255,59,92,.10); border:1px solid rgba(255,59,92,.30);">
+        ⚠ {{ error }}
+    </div>
+    {% endif %}
+
+    {% if success %}
+    <div class="message success" style="margin-bottom:16px; padding:13px 15px; border-radius:13px; font-size:12px; color:var(--emerald); background:rgba(0,255,135,.08); border:1px solid rgba(0,255,135,.25);">
+        ✓ {{ success }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('admin_settings') }}">
+
+        <div style="margin-bottom:16px;">
+            <label style="display:block; color:var(--muted); font-size:11px; font-weight:bold; letter-spacing:.7px; margin-bottom:8px;">
+                CURRENT PASSWORD (required)
+            </label>
+            <input
+                type="password"
+                name="current_password"
+                placeholder="Confirm it's you"
+                required
+                style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.05); color:var(--white); outline:none; font-size:13px;"
+            >
+        </div>
+
+        <div style="margin-bottom:16px;">
+            <label style="display:block; color:var(--muted); font-size:11px; font-weight:bold; letter-spacing:.7px; margin-bottom:8px;">
+                NEW USERNAME (leave blank to keep current)
+            </label>
+            <input
+                type="text"
+                name="new_username"
+                placeholder="{{ username }}"
+                minlength="3"
+                maxlength="50"
+                style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.05); color:var(--white); outline:none; font-size:13px;"
+            >
+        </div>
+
+        <div style="margin-bottom:16px;">
+            <label style="display:block; color:var(--muted); font-size:11px; font-weight:bold; letter-spacing:.7px; margin-bottom:8px;">
+                NEW PASSWORD (leave blank to keep current)
+            </label>
+            <input
+                type="password"
+                name="new_password"
+                placeholder="Minimum 6 characters"
+                minlength="6"
+                style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.05); color:var(--white); outline:none; font-size:13px;"
+            >
+        </div>
+
+        <div style="margin-bottom:20px;">
+            <label style="display:block; color:var(--muted); font-size:11px; font-weight:bold; letter-spacing:.7px; margin-bottom:8px;">
+                CONFIRM NEW PASSWORD
+            </label>
+            <input
+                type="password"
+                name="confirm_password"
+                placeholder="Repeat new password"
+                minlength="6"
+                style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.05); color:var(--white); outline:none; font-size:13px;"
+            >
+        </div>
+
+        <button type="submit" class="btn-small" style="width:100%; padding:13px;">
+            Save Changes
+        </button>
+
+    </form>
+
+</div>
+
+{% endblock %}

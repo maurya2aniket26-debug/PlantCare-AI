@@ -1,0 +1,90 @@
+{% extends "admin_base.html" %}
+{% block title %}| Activity{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h2>System Activity</h2>
+        <p>Recent registrations, predictions, and admin actions</p>
+    </div>
+    <div class="user-chip">{{ username }}</div>
+</div>
+
+<div class="section">
+    <h3>Recent Registrations <span>(last 10)</span></h3>
+
+    {% if recent_registrations|length == 0 %}
+    <p class="empty">No registrations yet.</p>
+    {% else %}
+    <table>
+        <tr>
+            <th>Username</th>
+            <th>Registered At</th>
+        </tr>
+        {% for r in recent_registrations %}
+        <tr>
+            <td>{{ r[0] }}</td>
+            <td>{{ r[1] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h3>Recent Predictions <span>(last 10)</span></h3>
+
+    {% if recent_predictions|length == 0 %}
+    <p class="empty">No predictions yet.</p>
+    {% else %}
+    <table>
+        <tr>
+            <th>User</th>
+            <th>Plant</th>
+            <th>Disease</th>
+            <th>Date/Time</th>
+        </tr>
+        {% for p in recent_predictions %}
+        <tr>
+            <td>{{ p[0] }}</td>
+            <td>{{ p[1] }}</td>
+            <td>
+                {% if p[2].lower() == "healthy" %}
+                <span class="pill pill-healthy">{{ p[2] }}</span>
+                {% else %}
+                <span class="pill pill-disease">{{ p[2] }}</span>
+                {% endif %}
+            </td>
+            <td>{{ p[3] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h3>Admin Actions <span>(last 20)</span></h3>
+
+    {% if admin_actions|length == 0 %}
+    <p class="empty">No admin actions logged yet.</p>
+    {% else %}
+    <table>
+        <tr>
+            <th>Admin</th>
+            <th>Action</th>
+            <th>Details</th>
+            <th>Date/Time</th>
+        </tr>
+        {% for a in admin_actions %}
+        <tr>
+            <td>{{ a[0] }}</td>
+            <td>{{ a[1] }}</td>
+            <td>{{ a[2] }}</td>
+            <td>{{ a[3] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+</div>
+
+{% endblock %}

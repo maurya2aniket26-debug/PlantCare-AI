@@ -1,0 +1,48 @@
+{% extends "admin_base.html" %}
+{% block title %}| Predictions{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h2>Prediction Management</h2>
+        <p>All AI predictions made across every user</p>
+    </div>
+    <div class="user-chip">{{ username }}</div>
+</div>
+
+<div class="section">
+    <h3>Predictions <span>(most recent 300)</span></h3>
+
+    {% if predictions|length == 0 %}
+    <p class="empty">No predictions yet.</p>
+    {% else %}
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Plant</th>
+            <th>Disease</th>
+            <th>Confidence</th>
+            <th>Date/Time</th>
+        </tr>
+        {% for p in predictions %}
+        <tr>
+            <td>{{ p[0] }}</td>
+            <td>{{ p[1] }}</td>
+            <td>{{ p[2] }}</td>
+            <td>
+                {% if p[3].lower() == "healthy" %}
+                <span class="pill pill-healthy">{{ p[3] }}</span>
+                {% else %}
+                <span class="pill pill-disease">{{ p[3] }}</span>
+                {% endif %}
+            </td>
+            <td>{{ p[4] }}%</td>
+            <td>{{ p[5] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+</div>
+
+{% endblock %}
